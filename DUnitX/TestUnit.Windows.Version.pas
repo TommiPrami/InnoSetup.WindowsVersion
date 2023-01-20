@@ -98,13 +98,15 @@ end;
 function HandleVersion60(const AVersion: TWindowsVersion): string;
 begin
   if AVersion.Build = 6000 then
-    Result := 'Windows Vista' // 6.0.6000	Windows Vista
+    Result := 'Windows Vista'
   else if AVersion.Build = 6001 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1') // 6.0.6001	Windows Vista with Service Pack 1 or Windows Server 2008
+    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1')
   else if AVersion.Build = 6003 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista') // 6.0.6001	Windows Vista with Service Pack 2 or Windows Server 2008
+    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista')
   else if AVersion.Build >= 7600 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 R2', 'Windows 7');  // 6.1.7600	Windows 7 or Windows Server 2008 R2
+    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 R2', 'Windows 7')
+  else
+    Result := GetWindowsBuildVersionStr('Vista', AVersion);
 end;
 
 function HandleVersion63(const AVersion: TWindowsVersion): string;
