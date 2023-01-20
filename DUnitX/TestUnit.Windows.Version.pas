@@ -20,16 +20,29 @@ type
 
   function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TOsCompareMethod): Boolean;
 
-var
-  GOSVersion: TWindowsVersion;
+  procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
+  procedure SetOsVersionToWin7;
 
 const
-  // TODO: Get real values
+  // Constant values are the same as in Inno Setup
   VER_NT_WORKSTATION = 1;
   VER_NT_DOMAIN_CONTROLLER = 2;
   VER_NT_SERVER = 3;
 
 implementation
+
+var
+  GOSVersion: TWindowsVersion;
+
+procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
+begin
+  GOSVersion := TWindowsVersion.Create(AMajor, AMinor, ABuild, AProductType);
+end;
+
+procedure SetOsVersionToWin7;
+begin
+  SetOSVersion(6, 1, 7600, VER_NT_WORKSTATION);
+end;
 
 { TWindowsVersion }
 

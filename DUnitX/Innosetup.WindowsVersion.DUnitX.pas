@@ -8,9 +8,6 @@ uses
 type
   [TestFixture]
   TInnoSetupWindowsVersion = class
-  strict private
-    procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
-    procedure SetOsVersionToWin7;
   public
     [Setup]
     procedure Setup;
@@ -101,16 +98,6 @@ type
   end;
 
 implementation
-
-procedure TInnoSetupWindowsVersion.SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
-begin
-  GOSVersion := TWindowsVersion.Create(AMajor, AMinor, ABuild, AProductType);
-end;
-
-procedure TInnoSetupWindowsVersion.SetOsVersionToWin7;
-begin
-  SetOSVersion(6, 1, 7600, VER_NT_WORKSTATION);
-end;
 
 procedure TInnoSetupWindowsVersion.Setup;
 begin
