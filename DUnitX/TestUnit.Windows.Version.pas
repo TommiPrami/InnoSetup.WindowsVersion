@@ -74,11 +74,11 @@ function IfThenStr(const ABoolValue: Boolean; const ATrueStr, AFalseStr: string)
 begin
   if ABoolValue then
     Result := ATrueStr
-   else
+  else
     Result := AFalseStr;
 end;
 
-// INNO SETUP ROUTINES (TO TEST)
+// INNO SETUP ROUTINES (TO TEST) BELOW
 
 function IsWindowsServer: Boolean;
 var
