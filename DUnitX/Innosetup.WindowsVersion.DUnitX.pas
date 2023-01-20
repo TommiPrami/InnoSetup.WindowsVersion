@@ -9,11 +9,6 @@ type
   [TestFixture]
   TInnoSetupWindowsVersion = class
   public
-    [Setup]
-    procedure Setup;
-    [TearDown]
-    procedure TearDown;
-
     [Test]
     [TestCase('IsWindowsVersion - Older - 01', '5;1;0;False', ';')]
     [TestCase('IsWindowsVersion - Older - 02', '5;1;7000;False', ';')]
@@ -98,17 +93,6 @@ type
   end;
 
 implementation
-
-procedure TInnoSetupWindowsVersion.Setup;
-begin
-
-end;
-
-procedure TInnoSetupWindowsVersion.TearDown;
-begin
-
-end;
-
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);

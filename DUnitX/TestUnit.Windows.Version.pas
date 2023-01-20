@@ -167,7 +167,6 @@ begin
     Result := GetWindowsBuildVersionStr('12', LVersion) //Maybe ??
   else
     Result := GetWindowsBuildVersionStr('', LVersion);
-
 end;
 
 function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TOsCompareMethod): Boolean;
