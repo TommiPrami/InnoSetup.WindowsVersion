@@ -67,12 +67,6 @@ end;
 
 // INNO SETUP ROUTINES (TO TEST)
 
-function GetWindowsBuildVersionStr(const AMajorVersionStr: string; const AVersion: TWindowsVersion): string;
-begin
-  Result := 'Windows ' + AMajorVersionStr + ' (' + IntToStr(AVersion.Major) + '.' + IntToStr(AVersion.Minor) + '.'
-    + IntToStr(AVersion.Build) + ')';
-end;
-
 function IsWindowsServer: Boolean;
 var
   LVersion: TWindowsVersion;
@@ -82,12 +76,20 @@ begin
   Result := not (LVersion.ProductType = VER_NT_WORKSTATION);
 end;
 
+function GetWindowsBuildVersionStr(const AMajorVersionStr: string; const AVersion: TWindowsVersion): string;
+begin
+  Result := 'Windows ' + AMajorVersionStr + ' (' + IntToStr(AVersion.Major) + '.' + IntToStr(AVersion.Minor) + '.'
+    + IntToStr(AVersion.Build) + ')';
+end;
+
 function HandleVersion60(const AVersion: TWindowsVersion): string;
 begin
   if AVersion.Build = 6000 then
     Result := 'Windows Vista' // 6.0.6000	Windows Vista
   else if AVersion.Build = 6001 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008', 'Windows Vista') // 6.0.6001	Windows Vista with Service Pack 1 or Windows Server 2008
+    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1') // 6.0.6001	Windows Vista with Service Pack 1 or Windows Server 2008
+  else if AVersion.Build = 6003 then
+    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista') // 6.0.6001	Windows Vista with Service Pack 2 or Windows Server 2008
   else if AVersion.Build >= 7600 then
     Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 R2', 'Windows 7');  // 6.1.7600	Windows 7 or Windows Server 2008 R2
 end;
@@ -107,18 +109,19 @@ begin
   case AVersion.Build of
     10240: Result := 'Windows 10 (1507)';
     10586: Result := 'Windows 10 (1511)';
-    14393: Result := IfThenStr(IsWindowsServer, 'Windows Server 2016', '');
+    14393: Result := IfThenStr(IsWindowsServer, 'Windows Server 2016', 'Windows 10 (1607)');
     15063: Result := 'Windows 10 (1703)';
     16299: Result := 'Windows 10 (1709)';
     17134: Result := 'Windows 10 (1803)';
-    17763: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019', '');
+    17763: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019', 'Windows 10 (1809)');
     18362: Result := 'Windows 10 (1903)';
-    18363: Result := 'Windows 10 (1909)';
-    19041: Result := 'Windows 10 (2004)';
-    19042: Result := 'Windows 10 (20H2)';
+    18363: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (1909)', 'Windows 10 (1909)');
+    19041: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (2004)', 'Windows 10 (2004)');
+    19042: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (20H2)', 'Windows 10 (20H2)');
     19043: Result := 'Windows 10 (21H1)';
     19044: Result := 'Windows 10 (21H2)';
-    20348: Result := IfThenStr(IsWindowsServer, 'Windows 10 (21H2)', 'Windows Server 2022');
+    19045: Result := 'Windows 10 (22H2)';
+    20348: Result := IfThenStr(IsWindowsServer, 'Windows Server 2022', 'Windows 10 (21H2)');
     22000: Result := 'Windows 11 (21H2)';
     22621: Result := 'Windows 11 (22H2)';
     else
@@ -149,53 +152,52 @@ begin
     Result := GetWindowsBuildVersionStr('12', LVersion); //Maybe ??
 end;
 
-
 function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TOsCompareMethod): Boolean;
 var
-  LVersion: TWindowsVersion;
+  LOSVersion: TWindowsVersion;
 begin
   Result := False;
-  GetWindowsVersionEx(LVersion);
+  GetWindowsVersionEx(LOSVersion);
 
   if ACompareMethod = ocmOlder then
   begin
-    Result := LVersion.Major < AMajor;
+    Result := LOSVersion.Major < AMajor;
 
-    if not Result and (AMajor = LVersion.Major) then
-      Result := LVersion.Minor < AMinor;
+    if not Result and (AMajor = LOSVersion.Major) then
+      Result := LOSVersion.Minor < AMinor;
 
-    if not Result and (ABuild > 0) and (AMajor = LVersion.Major) and (LVersion.Minor = AMinor) then
-      Result :=  LVersion.Build < ABuild;
+    if not Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (LOSVersion.Minor = AMinor) then
+      Result :=  LOSVersion.Build < ABuild;
   end
   else if ACompareMethod = ocmOlderOrEqual then
   begin
-    Result := LVersion.Major <= AMajor;
+    Result := LOSVersion.Major <= AMajor;
 
-    if Result and (AMajor = LVersion.Major) then
-      Result := LVersion.Minor <= AMinor;
+    if Result and (AMajor = LOSVersion.Major) then
+      Result := LOSVersion.Minor <= AMinor;
 
-    if Result and (ABuild > 0) and (AMajor = LVersion.Major) and (AMinor = LVersion.Minor) then
-      Result := LVersion.Build <= ABuild;
+    if Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (AMinor = LOSVersion.Minor) then
+      Result := LOSVersion.Build <= ABuild;
   end
   else if ACompareMethod = ocmNewerOrEqual then
   begin
-    Result := AMajor >= LVersion.Major;
+    Result := LOSVersion.Major >= AMajor;
 
-    if Result and (AMajor = LVersion.Major) then
-      Result := AMinor >= LVersion.Minor;
+    if Result and (AMajor = LOSVersion.Major) then
+      Result := LOSVersion.Minor >= AMinor;
 
-    if Result and (ABuild > 0) and (AMajor = LVersion.Major) and (AMinor = LVersion.Minor) then
-      Result := ABuild >= LVersion.Build;
+    if Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (AMinor = LOSVersion.Minor) then
+      Result := LOSVersion.Build >= ABuild;
   end
   else if ACompareMethod = ocmNewer then
   begin
-    Result := AMajor > LVersion.Major;
+    Result := LOSVersion.Major > AMajor;
 
-    if not Result and (LVersion.Major = AMajor) then
-      Result := AMinor > LVersion.Minor;
+    if not Result and (LOSVersion.Major = AMajor) then
+      Result := LOSVersion.Minor > AMinor;
 
-    if not Result and (ABuild > 0) and (LVersion.Major = AMajor) and (LVersion.Minor = AMinor) then
-      Result :=  ABuild > LVersion.Build;
+    if not Result and (ABuild > 0) and (LOSVersion.Major = AMajor) and (LOSVersion.Minor = AMinor) then
+      Result :=  LOSVersion.Build > ABuild;
   end;
 end;
 
@@ -209,7 +211,6 @@ function IsWinServer2008r2(const ACompareMethod: TOsCompareMethod): Boolean;
 begin
   Result := IsWin7(ACompareMethod) and IsWindowsServer;
 end;
-
 
 // 6.2.9200	Windows 8 or Windows Server 2012
 function IsWin8(const ACompareMethod: TOsCompareMethod): Boolean;
@@ -301,6 +302,5 @@ function IsWin11_22H2(const ACompareMethod: TOsCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22621, ACompareMethod);
 end;
-
 
 end.
