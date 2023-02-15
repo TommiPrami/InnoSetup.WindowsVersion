@@ -1,4 +1,4 @@
-﻿// ST_WindowsVersion.iss
+﻿// WindowsVersion.iss
 
 function IfThenStr(const ABoolValue: Boolean; const ATrueStr, AFalseStr: string): string;
 begin
