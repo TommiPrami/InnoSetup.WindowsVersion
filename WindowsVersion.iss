@@ -1,5 +1,8 @@
 ﻿// WindowsVersion.iss
 
+type
+  TVersionCompareMethod = (vcmOlder, vcmOlderOrEqual, vcmNewerOrEqual, vcmNewer);
+
 function IfThenStr(const ABoolValue: Boolean; const ATrueStr, AFalseStr: string): string;
 begin
   if ABoolValue then
@@ -97,7 +100,7 @@ begin
     Result := GetWindowsBuildVersionStr('', LVersion);
 end;
 
-function CompareVersions(const AComparedVersion, AVersiopnComparedTo: TWindowsVersion; ACompareMethod: TVersionCompareMethod): Boolean;
+function CompareVersions(const AComparedVersion, AVersiopnComparedTo: TWindowsVersion; const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := False;
 
