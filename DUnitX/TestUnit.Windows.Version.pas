@@ -6,7 +6,7 @@ uses
   System.SysUtils;
 
 type
-  TOsCompareMethod = (ocmOlder, ocmOlderOrEqual, ocmNewerOrEqual, ocmNewer);
+  TVersionCompareMethod = (vcmOlder, vcmOlderOrEqual, vcmNewerOrEqual, vcmNewer);
 
   TWindowsVersion = record
     Major: Integer;
@@ -18,7 +18,7 @@ type
     function ToString: string;
   end;
 
-  function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TOsCompareMethod): Boolean;
+  function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TVersionCompareMethod): Boolean;
 
   procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
   procedure SetOsVersionToWin7;
@@ -169,153 +169,164 @@ begin
     Result := GetWindowsBuildVersionStr('', LVersion);
 end;
 
-function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TOsCompareMethod): Boolean;
-var
-  LOSVersion: TWindowsVersion;
+function CompareVersions(const AComparedVersion, AVersiopnComparedTo: TWindowsVersion; ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := False;
-  GetWindowsVersionEx(LOSVersion);
 
-  if ACompareMethod = ocmOlder then
+  if ACompareMethod = vcmOlder then
   begin
-    Result := LOSVersion.Major < AMajor;
+    Result := AVersiopnComparedTo.Major < AComparedVersion.Major;
 
-    if not Result and (AMajor = LOSVersion.Major) then
-      Result := LOSVersion.Minor < AMinor;
+    if not Result and (AComparedVersion.Major = AVersiopnComparedTo.Major) then
+      Result := AVersiopnComparedTo.Minor < AComparedVersion.Minor;
 
-    if not Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (LOSVersion.Minor = AMinor) then
-      Result :=  LOSVersion.Build < ABuild;
+    if not Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersiopnComparedTo.Major) and (AVersiopnComparedTo.Minor = AComparedVersion.Minor) then
+      Result :=  AVersiopnComparedTo.Build < AComparedVersion.Build;
   end
-  else if ACompareMethod = ocmOlderOrEqual then
+  else if ACompareMethod = vcmOlderOrEqual then
   begin
-    Result := LOSVersion.Major <= AMajor;
+    Result := AVersiopnComparedTo.Major <= AComparedVersion.Major;
 
-    if Result and (AMajor = LOSVersion.Major) then
-      Result := LOSVersion.Minor <= AMinor;
+    if Result and (AComparedVersion.Major = AVersiopnComparedTo.Major) then
+      Result := AVersiopnComparedTo.Minor <= AComparedVersion.Minor;
 
-    if Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (AMinor = LOSVersion.Minor) then
-      Result := LOSVersion.Build <= ABuild;
+    if Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersiopnComparedTo.Major) and (AComparedVersion.Minor = AVersiopnComparedTo.Minor) then
+      Result := AVersiopnComparedTo.Build <= AComparedVersion.Build;
   end
-  else if ACompareMethod = ocmNewerOrEqual then
+  else if ACompareMethod = vcmNewerOrEqual then
   begin
-    Result := LOSVersion.Major >= AMajor;
+    Result := AVersiopnComparedTo.Major >= AComparedVersion.Major;
 
-    if Result and (AMajor = LOSVersion.Major) then
-      Result := LOSVersion.Minor >= AMinor;
+    if Result and (AComparedVersion.Major = AVersiopnComparedTo.Major) then
+      Result := AVersiopnComparedTo.Minor >= AComparedVersion.Minor;
 
-    if Result and (ABuild > 0) and (AMajor = LOSVersion.Major) and (AMinor = LOSVersion.Minor) then
-      Result := LOSVersion.Build >= ABuild;
+    if Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersiopnComparedTo.Major) and (AComparedVersion.Minor = AVersiopnComparedTo.Minor) then
+      Result := AVersiopnComparedTo.Build >= AComparedVersion.Build;
   end
-  else if ACompareMethod = ocmNewer then
+  else if ACompareMethod = vcmNewer then
   begin
-    Result := LOSVersion.Major > AMajor;
+    Result := AVersiopnComparedTo.Major > AComparedVersion.Major;
 
-    if not Result and (LOSVersion.Major = AMajor) then
-      Result := LOSVersion.Minor > AMinor;
+    if not Result and (AVersiopnComparedTo.Major = AComparedVersion.Major) then
+      Result := AVersiopnComparedTo.Minor > AComparedVersion.Minor;
 
-    if not Result and (ABuild > 0) and (LOSVersion.Major = AMajor) and (LOSVersion.Minor = AMinor) then
-      Result :=  LOSVersion.Build > ABuild;
+    if not Result and (AComparedVersion.Build > 0) and (AVersiopnComparedTo.Major = AComparedVersion.Major) and (AVersiopnComparedTo.Minor = AComparedVersion.Minor) then
+      Result :=  AVersiopnComparedTo.Build > AComparedVersion.Build;
   end;
 end;
 
+function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TVersionCompareMethod): Boolean;
+var
+  LOSVersion: TWindowsVersion;
+  LComparedVersion: TWindowsVersion;
+begin
+  GetWindowsVersionEx(LOSVersion);
+
+  LComparedVersion.Major := AMajor;
+  LComparedVersion.Minor := AMinor;
+  LComparedVersion.Build := ABuild;
+
+  Result := CompareVersions(LComparedVersion, LOSVersion, ACompareMethod);
+end;
+
 // 6.1.7600	Windows 7 or Windows Server 2008 R2
-function IsWin7(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin7(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 1, 0, ACompareMethod);
 end;
 
-function IsWinServer2008r2(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2008r2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin7(ACompareMethod) and IsWindowsServer;
 end;
 
 // 6.2.9200	Windows 8 or Windows Server 2012
-function IsWin8(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin8(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 2, 0, ACompareMethod);
 end;
 
-function IsWinServer2012(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2012(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin8(ACompareMethod) and IsWindowsServer;
 end;
 
 // 6.3.9200	Windows 8.1 or Windows Server 2012 R2
-function IsWin81(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin81(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 3, 0, ACompareMethod);
 end;
 
-function IsWinServer2012r2(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2012r2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin81(ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.14393	Windows 10 Version 1607 (Anniversary Update) or Windows Server 2016 - Support end date: Apr 10, 2018
-function IsWin10_1067(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_1067(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 14393, ACompareMethod);
 end;
 
-function IsWinServer2016(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2016(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin10_1067(ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.17763	Windows 10 Version 1809 (October 2018 Update) or Windows Server 2019 - Support end date: Nov 10, 2020
-function IsWin10_1809(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_1809(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 17763, ACompareMethod);
 end;
 
-function IsWinServer2019(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2019(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin10_1809(ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.18362	Windows 10 Version 1903 (May 2019 Update) - Support end date: Dec 8, 2020
-function IsWin10_1903(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_1903(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 18362, ACompareMethod);
 end;
 
 // 10.0.19041	Windows 10 Version 2004 (May 2020 Update) - Support end date:  Dec 14, 2022
-function IsWin10_2004(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_2004(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19041, ACompareMethod);
 end;
 
 // 10.0.19043	Windows 10 Version 21H1 (May 2021 Update) - Support end date: Dec 13, 2022
-function IsWin10_21H1(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19043, ACompareMethod);
 end;
 
 // 10.0.19044	Windows 10 Version 21H2 (November 2021 Update) - Support end date: Jun 13, 2023
-function IsWin10_21H2(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_21H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19044, ACompareMethod);
 end;
 
 // 19045 22H2 - Support started Oct 18, 2022 - Support end date: May 14, 2024
-function IsWin10_22H2(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin10_22H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19045, ACompareMethod);
 end;
 
 // 10.0.20348	Windows Server 2022 Version 21H2
-function IsWinServer2022(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWinServer2022(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 20348, ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.22000	Windows 11 Version 21H2
-function IsWin11_21H1(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin11_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22000, ACompareMethod);
 end;
 
-function IsWin11_22H2(const ACompareMethod: TOsCompareMethod): Boolean;
+function IsWin11_22H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22621, ACompareMethod);
 end;

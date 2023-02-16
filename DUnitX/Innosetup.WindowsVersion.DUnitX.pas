@@ -97,12 +97,12 @@ implementation
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);
 var
-  LCompareMethod: TOsCompareMethod;
+  LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
 begin
   SetOsVersionToWin7;
 
-  LCompareMethod := ocmOlder;
+  LCompareMethod := vcmOlder;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
   Assert.AreEqual(AExcpectedResult, LResult);
@@ -111,12 +111,12 @@ end;
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlderOrEqual(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);
 var
-  LCompareMethod: TOsCompareMethod;
+  LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
 begin
   SetOsVersionToWin7;
 
-  LCompareMethod := ocmOlderOrEqual;
+  LCompareMethod := vcmOlderOrEqual;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
   Assert.AreEqual(AExcpectedResult, LResult);
@@ -125,12 +125,12 @@ end;
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewerOrEqual(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);
 var
-  LCompareMethod: TOsCompareMethod;
+  LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
 begin
   SetOsVersionToWin7;
 
-  LCompareMethod := ocmNewerOrEqual;
+  LCompareMethod := vcmNewerOrEqual;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
   Assert.AreEqual(AExcpectedResult, LResult);
@@ -139,12 +139,12 @@ end;
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);
 var
-  LCompareMethod: TOsCompareMethod;
+  LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
 begin
   SetOsVersionToWin7;
 
-  LCompareMethod := ocmNewer;
+  LCompareMethod := vcmNewer;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
   Assert.AreEqual(AExcpectedResult, LResult);
