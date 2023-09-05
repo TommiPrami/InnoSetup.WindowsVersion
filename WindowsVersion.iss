@@ -210,9 +210,27 @@ begin
   Result := IsWindowsVersion(10, 0, 17763, ACompareMethod);
 end;
 
+// Windows Server 1709 10.0.16299
+function IsWinServer2016_1079(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result :=  IsWindowsVersion(10, 0, 16299, ACompareMethod) and IsWindowsServer;
+end;
+
+// Windows Server 1803 10.0.17134
+function IsWinServer2016_1803(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result :=  IsWindowsVersion(10, 0, 17134, ACompareMethod) and IsWindowsServer;
+end;
+
 function IsWinServer2019(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWin10_1809(ACompareMethod) and IsWindowsServer;
+end;
+
+// Windows Server 1903 10.0.18362
+function IsWinServer2019_1903(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result :=  IsWindowsVersion(10, 0, 18362, ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.18362	Windows 10 Version 1903 (May 2019 Update) - Support end date: Dec 8, 2020
