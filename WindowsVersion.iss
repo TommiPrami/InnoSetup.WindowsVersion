@@ -70,6 +70,8 @@ begin
     20348: Result := IfThenStr(IsWindowsServer, 'Windows Server 2022', 'Windows 10 (21H2)');
     22000: Result := 'Windows 11 (21H2)';
     22621: Result := 'Windows 11 (22H2)';
+    22631: Result := 'Windows 11 (23H2)';
+    25398: Result := 'Windows Server 23H2';
     else
       Result := GetWindowsBuildVersionStr(IfThenStr(AVersion.Build >= 22000, '11', '10'), AVersion);
   end
@@ -263,19 +265,33 @@ begin
   Result := IsWindowsVersion(10, 0, 19045, ACompareMethod);
 end;
 
-// 10.0.20348	Windows Server 2022 Version 21H2
+// 10.0.20348	Windows Server 2022 Version 21H2: end of acrtive suppoort 13 Oct 2026 (Security support up to: 14 Oct 2031) 
 function IsWinServer2022(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 20348, ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.22000	Windows 11 Version 21H2
+// 10.0.22000	Windows 11 Version 21H2 - Support end date: October 10, 2023
 function IsWin11_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22000, ACompareMethod);
 end;
 
+// 10.0.22621	Windows 11 Version 22H2 - Support end date: Oct 8, 2024
 function IsWin11_22H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22621, ACompareMethod);
+end;
+
+// 10.0.22631	Windows 11 Version 23H2 - Support end date: Nov 11, 2025
+function IsWin11_23H2(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result := IsWindowsVersion(10, 0, 22631, ACompareMethod);
+end;
+
+// 10.0.25398	Windows "11" Server Version 23H2 - Support end date: 
+//  - Microsoft Windows Server containers (to be come Windows server 2025, possibly, not on LTS version)
+function IsWinServer_23H2(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result := IsWindowsVersion(10, 0, 25398, ACompareMethod) and IsWindowsServer;
 end;
