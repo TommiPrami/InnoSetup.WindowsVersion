@@ -1,6 +1,10 @@
 ﻿// WindowsVersion.iss
 
-// Good list of version info: https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
+// Good lists of version info: 
+//   - https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
+//   - https://endoflife.date/windows
+//   - https://endoflife.date/windows-server
+//   - 
 
 type
   TVersionCompareMethod = (vcmOlder, vcmOlderOrEqual, vcmNewerOrEqual, vcmNewer);
