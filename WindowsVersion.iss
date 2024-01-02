@@ -1,5 +1,7 @@
 ﻿// WindowsVersion.iss
 
+// Good list of version info: https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
+
 type
   TVersionCompareMethod = (vcmOlder, vcmOlderOrEqual, vcmNewerOrEqual, vcmNewer);
 
