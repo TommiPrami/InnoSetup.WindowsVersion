@@ -304,7 +304,7 @@ begin
 end;
 
 // 10.0.26100	Windows 11 Version 24H2 - Support end date: ??? 
-function IsWin11_23H2(const ACompareMethod: TVersionCompareMethod): Boolean;
+function IsWin11_24H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 26100, ACompareMethod);
 end;
