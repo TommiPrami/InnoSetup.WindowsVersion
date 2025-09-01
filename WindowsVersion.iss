@@ -79,6 +79,7 @@ begin
     22631: Result := 'Windows 11 (23H2)';
     26100: Result := 'Windows 11 (24H2)';
     25398: Result := 'Windows Server 23H2';
+    26100: Result := 'Windows Server 2025'; 
     else
       Result := GetWindowsBuildVersionStr(IfThenStr(AVersion.Build >= 22000, '11', '10'), AVersion);
   end
@@ -307,4 +308,10 @@ end;
 function IsWin11_24H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 26100, ACompareMethod);
+end;
+
+// 10.0.25398	Windows "11" Server Version 2025 - Support end date: ???
+function IsWinServer_2025(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result := IsWindowsVersion(10, 0, 26100, ACompareMethod) and IsWindowsServer;
 end;
