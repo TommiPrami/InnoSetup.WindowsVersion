@@ -1,6 +1,6 @@
 ﻿// WindowsVersionCommonCode.inc
 
-// Common code in between InnoSetrup and Delphi-Unittest code
+// Common code in between InnoSetup and Delphi-Unittest code
 
 function IsWindowsServer: Boolean;
 var
@@ -96,60 +96,148 @@ begin
     Result := GetWindowsBuildVersionStr('', LVersion);
 end;
 
-// TODO: Unneeded comparisons made, fix
+function SkipVersion(const AVersionPart: Integer): Boolean;
+begin
+  Result := AVersionPart = -1;
+end;
+
+function SkipMinor(const AComparedVersion: TWindowsVersion): Boolean;
+begin
+  Result := SkipVersion(AComparedVersion.Minor);
+end;
+
+function SkipBuild(const AComparedVersion: TWindowsVersion): Boolean;
+begin
+  Result := SkipVersion(AComparedVersion.Build);
+end;
+
+function ComparePart(const APartConmpare, APartConmpareTo: Integer; const ACompareMethod: TVersionCompareMethod; var ACompareResult: Boolean): Boolean;
+begin
+  Result := False;
+  ACompareResult := False;
+
+  if not SkipVersion(APartConmpare) then
+  begin
+    if ACompareMethod = vcmOlder then
+    begin
+      if APartConmpare < APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := True;
+      end
+      else if APartConmpare > APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := False;
+      end
+    end
+    else if ACompareMethod = vcmOlderOrEqual then
+    begin
+      if APartConmpare < APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := True;
+      end
+      else if APartConmpare > APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := False;
+      end;
+    end
+    else if ACompareMethod = vcmEqual then
+    begin
+      if APartConmpare <> APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := False;
+      end;
+    end
+    else if ACompareMethod = vcmNewerOrEqual then
+    begin
+      if APartConmpare < APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := False;
+      end
+      else if APartConmpare > APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := True;
+      end;
+    end
+    else if ACompareMethod = vcmNewer then
+    begin
+      if APartConmpare < APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := False;
+      end
+      else if APartConmpare > APartConmpareTo then
+      begin
+        Result := True;
+        ACompareResult := True;
+      end;
+    end;
+  end;
+end;
+
+// TODO:  Maybe should change the logic in a way that,
+//        if part of version is negative, then it is given.
+//        Now that zero is used, it'll cause problems or
+//        potentiel headache, also code is way too complec because of this.
 function CompareVersions(const AComparedVersion, AVersionComparedTo: TWindowsVersion; const ACompareMethod: TVersionCompareMethod): Boolean;
+var
+  LComparePartResult: Boolean;
 begin
   Result := False;
 
-  if ACompareMethod = vcmOlder then
+  if AComparedVersion.Major <= 0 then
   begin
-    Result := AVersionComparedTo.Major < AComparedVersion.Major;
+    RaiseException('Major part of compared version must be greater than 0');
+    // TODO: mabe compare result to parameter and result would be error/NoError
+    Exit;
+  end;
 
-    if not Result and (AComparedVersion.Major = AVersionComparedTo.Major) then
-      Result := AVersionComparedTo.Minor < AComparedVersion.Minor;
-
-    if not Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersionComparedTo.Major) and (AVersionComparedTo.Minor = AComparedVersion.Minor) then
-      Result :=  AVersionComparedTo.Build < AComparedVersion.Build;
-  end
-  else if ACompareMethod = vcmOlderOrEqual then
+  if AVersionComparedTo.Major <= 0 then
   begin
-    Result := AVersionComparedTo.Major <= AComparedVersion.Major;
+    RaiseException('Major part of comparedTO version must be greater than 0');
+    // TODO: mabe compare result to parameter and result would be error/NoError
+    Exit;
+  end;
 
-    if Result and (AComparedVersion.Major = AVersionComparedTo.Major) then
-      Result := AVersionComparedTo.Minor <= AComparedVersion.Minor;
-
-    if Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersionComparedTo.Major) and (AComparedVersion.Minor = AVersionComparedTo.Minor) then
-      Result := AVersionComparedTo.Build <= AComparedVersion.Build;
-  end
-  else if ACompareMethod = vcmEqual then
+  if SkipMinor(AComparedVersion) and not SkipBuild(AComparedVersion) then
   begin
-    Result := AVersionComparedTo.Major = AComparedVersion.Major;
+    RaiseException('Build part not skipped but minor part is, skippin must strat from the with the rightmost version part');
+    // TODO: mabe compare result to parameter and result would be error/NoError
+    Exit;
+  end;
 
-    if Result and (AVersionComparedTo.Minor > 0) and (AComparedVersion.Major = AVersionComparedTo.Major) then
-      Result := AVersionComparedTo.Minor = AComparedVersion.Minor;
-
-    if Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersionComparedTo.Major) and (AComparedVersion.Minor = AVersionComparedTo.Minor) then
-      Result := AVersionComparedTo.Build = AComparedVersion.Build;
-  end
-  else if ACompareMethod = vcmNewerOrEqual then
+  if ComparePart(AComparedVersion.Major, AVersionComparedTo.Major, ACompareMethod, LComparePartResult) then
+    Result := LComparePartResult
+  else
   begin
-    Result := AVersionComparedTo.Major >= AComparedVersion.Major;
-
-    if Result and (AComparedVersion.Major = AVersionComparedTo.Major) then
-      Result := AVersionComparedTo.Minor >= AComparedVersion.Minor;
-
-    if Result and (AComparedVersion.Build > 0) and (AComparedVersion.Major = AVersionComparedTo.Major) and (AComparedVersion.Minor = AVersionComparedTo.Minor) then
-      Result := AVersionComparedTo.Build >= AComparedVersion.Build;
-  end
-  else if ACompareMethod = vcmNewer then
-  begin
-    Result := AVersionComparedTo.Major > AComparedVersion.Major;
-
-    if not Result and (AVersionComparedTo.Major = AComparedVersion.Major) then
-      Result := AVersionComparedTo.Minor > AComparedVersion.Minor;
-
-    if not Result and (AComparedVersion.Build > 0) and (AVersionComparedTo.Major = AComparedVersion.Major) and (AVersionComparedTo.Minor = AComparedVersion.Minor) then
-      Result :=  AVersionComparedTo.Build > AComparedVersion.Build;
+    if ComparePart(AComparedVersion.Minor, AVersionComparedTo.Minor, ACompareMethod, LComparePartResult) then
+      Result := LComparePartResult
+    else
+    begin
+      if ComparePart(AComparedVersion.Build, AVersionComparedTo.Build, ACompareMethod, LComparePartResult) then
+        Result := LComparePartResult
+      else
+      begin
+        if ACompareMethod = vcmOlder then
+          Result := False
+        else if ACompareMethod = vcmOlderOrEqual then
+          Result := True
+        else if ACompareMethod = vcmEqual then
+          Result := True
+        else if ACompareMethod = vcmNewerOrEqual then
+          Result := True
+        else if ACompareMethod = vcmNewer then
+          Result := False
+        else
+          RaiseException('Unknown or unsupported comparation operator with index: ' + IntToStr(Integer(ACompareMethod)));
+      end;
+    end;
   end;
 end;
 
@@ -164,7 +252,7 @@ begin
   LComparedVersion.Minor := AMinor;
   LComparedVersion.Build := ABuild;
 
-  Result := CompareVersions(LComparedVersion, LOSVersion, ACompareMethod);
+  Result := CompareVersions(LOSVersion, LComparedVersion, ACompareMethod);
 end;
 
 // 6.1.7600	Windows 7 or Windows Server 2008 R2
