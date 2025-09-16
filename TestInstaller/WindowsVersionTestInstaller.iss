@@ -28,9 +28,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Code]
 #include "..\WindowsVersion.iss"
 
-procedure ShowWindoiwsVersion;
+procedure ShowWindowsVersion;
 begin
-  MsgBox('Windows Version: ' + WindowsVersionStr, mbInformation, MB_OK);
+  MsgBox('Detected Windows Version: ' + WindowsVersionStr, mbInformation, MB_OK);
+end;
+
+procedure CheckResult(const AResult, AExpectedResult: Boolean; const AMessage: string);
+begin
+  if AResult <> AExpectedResult then
+    RaiseException('Test failed: "' + AMessage + '"');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -38,9 +44,203 @@ begin
   case CurStep of
     ssInstall:
       begin
-        ShowWindoiwsVersion;
+        ShowWindowsVersion;
+        // vcmOlder, vcmOlderOrEqual, vcmEqual, vcmNewerOrEqual, vcmNewer
         
-        // ...
+        { Your mileage on Windows Version test might vary vastly 
+          depending on your windows version you are testing on.
+          
+          This kind of expects that we are runninbg latest desktop version }
+        
+        // IsWin7
+        CheckResult(IsWin7(vcmOlder), False, 'IsWin7(vcmOlder)');
+        CheckResult(IsWin7(vcmOlderOrEqual), False, 'IsWin7(vcmOlderOrEqual)');
+        CheckResult(IsWin7(vcmEqual), False, 'sWin7(vcmEqual)');
+        CheckResult(IsWin7(vcmNewerOrEqual), True, 'IsWin7(vcmNewerOrEqual)');
+        CheckResult(IsWin7(vcmNewer), True, 'IsWin7(vcmNewer)');
+        
+        // IsWinServer2008r2
+        CheckResult(IsWinServer2008r2(vcmOlder), False, 'IsWinServer2008r2(vcmOlder)');
+        CheckResult(IsWinServer2008r2(vcmOlderOrEqual), False, 'IsWinServer2008r2(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2008r2(vcmEqual), False, 'IsWinServer2008r2(vcmEqual)');
+        CheckResult(IsWinServer2008r2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2008r2(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2008r2(vcmNewer), IsWindowsServer, 'IsWinServer2008r2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin8(vcmOlder), False, 'IsWin8(vcmOlder)');
+        CheckResult(IsWin8(vcmOlderOrEqual), False, 'IsWin8(vcmOlderOrEqual)');
+        CheckResult(IsWin8(vcmEqual), False, ' (vcmEqual)');
+        CheckResult(IsWin8(vcmNewerOrEqual), True, 'IsWin8(vcmNewerOrEqual)');
+        CheckResult(IsWin8(vcmNewer), True, 'IsWin8(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2012(vcmOlder), False, 'IsWinServer2012(vcmOlder)');
+        CheckResult(IsWinServer2012(vcmOlderOrEqual), False, 'IsWinServer2012(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2012(vcmEqual), False, 'IsWinServer2012(vcmEqual)');
+        CheckResult(IsWinServer2012(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2012(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2012(vcmNewer), IsWindowsServer, 'IsWinServer2012(vcmNewer)');
+
+        // 
+        CheckResult(IsWin81(vcmOlder), False, 'IsWin81(vcmOlder)');
+        CheckResult(IsWin81(vcmOlderOrEqual), False, 'IsWin81(vcmOlderOrEqual)');
+        CheckResult(IsWin81(vcmEqual), False, 'IsWin81(vcmEqual)');
+        CheckResult(IsWin81(vcmNewerOrEqual), True, 'IsWin81(vcmNewerOrEqual)');
+        CheckResult(IsWin81(vcmNewer), True, 'IsWin81(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2012r2(vcmOlder), False, 'IsWinServer2012r2(vcmOlder)');
+        CheckResult(IsWinServer2012r2(vcmOlderOrEqual), False, 'IsWinServer2012r2(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2012r2(vcmEqual), False, 'IsWinServer2012r2(vcmEqual)');
+        CheckResult(IsWinServer2012r2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2012r2(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2012r2(vcmNewer), IsWindowsServer, 'IsWinServer2012r2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_1067(vcmOlder), False, 'IsWin10_1067(vcmOlder)');
+        CheckResult(IsWin10_1067(vcmOlderOrEqual), False, 'IsWin10_1067(vcmOlderOrEqual)');
+        CheckResult(IsWin10_1067(vcmEqual), False, 'IsWin10_1067(vcmEqual)');
+        CheckResult(IsWin10_1067(vcmNewerOrEqual), True, 'IsWin10_1067(vcmNewerOrEqual)');
+        CheckResult(IsWin10_1067(vcmNewer), True, 'IsWin10_1067(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2016(vcmOlder), False, 'IsWinServer2016(vcmOlder)');
+        CheckResult(IsWinServer2016(vcmOlderOrEqual), False, 'IsWinServer2016(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2016(vcmEqual), False, 'IsWinServer2016(vcmEqual)');
+        CheckResult(IsWinServer2016(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2016(vcmNewer), IsWindowsServer, 'IsWinServer2016(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_1809(vcmOlder), False, 'IsWin10_1809(vcmOlder)');
+        CheckResult(IsWin10_1809(vcmOlderOrEqual), False, 'IsWin10_1809(vcmOlderOrEqual)');
+        CheckResult(IsWin10_1809(vcmEqual), False, 'IsWin10_1809(vcmEqual)');
+        CheckResult(IsWin10_1809(vcmNewerOrEqual), True, 'IsWin10_1809(vcmNewerOrEqual)');
+        CheckResult(IsWin10_1809(vcmNewer), True, 'IsWin10_1809(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2016_1079(vcmOlder), False, 'IsWinServer2016_1079(vcmOlder)');
+        CheckResult(IsWinServer2016_1079(vcmOlderOrEqual), False, 'IsWinServer2016_1079(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2016_1079(vcmEqual), False, 'IsWinServer2016_1079(vcmEqual)');
+        CheckResult(IsWinServer2016_1079(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016_1079(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2016_1079(vcmNewer), IsWindowsServer, 'IsWinServer2016_1079(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2016_1803(vcmOlder), False, 'IsWinServer2016_1803(vcmOlder)');
+        CheckResult(IsWinServer2016_1803(vcmOlderOrEqual), False, 'IsWinServer2016_1803(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2016_1803(vcmEqual), False, 'IsWinServer2016_1803(vcmEqual)');
+        CheckResult(IsWinServer2016_1803(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016_1803(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2016_1803(vcmNewer), IsWindowsServer, 'IsWinServer2016_1803(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2019(vcmOlder), False, 'IsWinServer2019(vcmOlder)');
+        CheckResult(IsWinServer2019(vcmOlderOrEqual), False, 'IsWinServer2019(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2019(vcmEqual), False, 'IsWinServer2019(vcmEqual)');
+        CheckResult(IsWinServer2019(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2019(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2019(vcmNewer), IsWindowsServer, 'IsWinServer2019(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2019_1903(vcmOlder), False, 'IsWinServer2019_1903(vcmOlder)');
+        CheckResult(IsWinServer2019_1903(vcmOlderOrEqual), False, 'IsWinServer2019_1903(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2019_1903(vcmEqual), False, 'IsWinServer2019_1903(vcmEqual)');
+        CheckResult(IsWinServer2019_1903(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2019_1903(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2019_1903(vcmNewer), IsWindowsServer, 'IsWinServer2019_1903(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_1903(vcmOlder), False, 'IsWin10_1903(vcmOlder)');
+        CheckResult(IsWin10_1903(vcmOlderOrEqual), False, 'IsWin10_1903(vcmOlderOrEqual)');
+        CheckResult(IsWin10_1903(vcmEqual), False, 'IsWin10_1903(vcmEqual)');
+        CheckResult(IsWin10_1903(vcmNewerOrEqual), True, 'IsWin10_1903(vcmNewerOrEqual)');
+        CheckResult(IsWin10_1903(vcmNewer), True, 'IsWin10_1903(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_2004(vcmOlder), False, 'IsWin10_2004(vcmOlder)');
+        CheckResult(IsWin10_2004(vcmOlderOrEqual), False, 'IsWin10_2004(vcmOlderOrEqual)');
+        CheckResult(IsWin10_2004(vcmEqual), False, 'IsWin10_2004(vcmEqual)');
+        CheckResult(IsWin10_2004(vcmNewerOrEqual), True, 'IsWin10_2004(vcmNewerOrEqual)');
+        CheckResult(IsWin10_2004(vcmNewer), True, 'IsWin10_2004(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_21H1(vcmOlder), False, 'IsWin10_21H1(vcmOlder)');
+        CheckResult(IsWin10_21H1(vcmOlderOrEqual), False, 'IsWin10_21H1(vcmOlderOrEqual)');
+        CheckResult(IsWin10_21H1(vcmEqual), False, 'IsWin10_21H1(vcmEqual)');
+        CheckResult(IsWin10_21H1(vcmNewerOrEqual), True, 'IsWin10_21H1(vcmNewerOrEqual)');
+        CheckResult(IsWin10_21H1(vcmNewer), True, 'IsWin10_21H1(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_21H2(vcmOlder), False, 'IsWin10_21H2(vcmOlder)');
+        CheckResult(IsWin10_21H2(vcmOlderOrEqual), False, 'IsWin10_21H2(vcmOlderOrEqual)');
+        CheckResult(IsWin10_21H2(vcmEqual), False, 'IsWin10_21H2(vcmEqual)');
+        CheckResult(IsWin10_21H2(vcmNewerOrEqual), True, 'IsWin10_21H2(vcmNewerOrEqual)');
+        CheckResult(IsWin10_21H2(vcmNewer), True, 'IsWin10_21H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin10_22H2(vcmOlder), False, 'IsWin10_22H2(vcmOlder)');
+        CheckResult(IsWin10_22H2(vcmOlderOrEqual), False, 'IsWin10_22H2(vcmOlderOrEqual)');
+        CheckResult(IsWin10_22H2(vcmEqual), False, 'IsWin10_22H2(vcmEqual)');
+        CheckResult(IsWin10_22H2(vcmNewerOrEqual), True, 'IsWin10_22H2(vcmNewerOrEqual)');
+        CheckResult(IsWin10_22H2(vcmNewer), True, 'IsWin10_22H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer2022(vcmOlder), False, 'IsWinServer2022(vcmOlder)');
+        CheckResult(IsWinServer2022(vcmOlderOrEqual), False, 'IsWinServer2022(vcmOlderOrEqual)');
+        CheckResult(IsWinServer2022(vcmEqual), False, 'IsWinServer2022(vcmEqual)');
+        CheckResult(IsWinServer2022(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2022(vcmNewerOrEqual)');
+        CheckResult(IsWinServer2022(vcmNewer), IsWindowsServer, 'IsWinServer2022(vcmNewer)');
+
+        // 
+        CheckResult(IsWin11_21H1(vcmOlder), False, 'IsWin11_21H1(vcmOlder)');
+        CheckResult(IsWin11_21H1(vcmOlderOrEqual), False, 'IsWin11_21H1(vcmOlderOrEqual)');
+        CheckResult(IsWin11_21H1(vcmEqual), False, 'IsWin11_21H1(vcmEqual)');
+        CheckResult(IsWin11_21H1(vcmNewerOrEqual), True, 'IsWin11_21H1(vcmNewerOrEqual)');
+        CheckResult(IsWin11_21H1(vcmNewer), True, 'IsWin11_21H1(vcmNewer)');
+
+        // 
+        CheckResult(IsWin11_22H2(vcmOlder), False, 'IsWin11_22H2(vcmOlder)');
+        CheckResult(IsWin11_22H2(vcmOlderOrEqual), False, 'IsWin11_22H2(vcmOlderOrEqual)');
+        CheckResult(IsWin11_22H2(vcmEqual), False, 'IsWin11_22H2(vcmEqual)');
+        CheckResult(IsWin11_22H2(vcmNewerOrEqual), True, 'IsWin11_22H2(vcmNewerOrEqual)');
+        CheckResult(IsWin11_22H2(vcmNewer), True, 'IsWin11_22H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin11_23H2(vcmOlder), False, 'IsWin11_23H2(vcmOlder)');
+        CheckResult(IsWin11_23H2(vcmOlderOrEqual), False, 'IsWin11_23H2(vcmOlderOrEqual)');
+        CheckResult(IsWin11_23H2(vcmEqual), False, 'IsWin11_23H2(vcmEqual)');
+        CheckResult(IsWin11_23H2(vcmNewerOrEqual), True, 'IsWin11_23H2(vcmNewerOrEqual)');
+        CheckResult(IsWin11_23H2(vcmNewer), True, 'IsWin11_23H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWinServer_23H2(vcmOlder), False, 'IsWinServer_23H2(vcmOlder)');
+        CheckResult(IsWinServer_23H2(vcmOlderOrEqual), False, 'IsWinServer_23H2(vcmOlderOrEqual)');
+        CheckResult(IsWinServer_23H2(vcmEqual), False, 'IsWinServer_23H2(vcmEqual)');
+        CheckResult(IsWinServer_23H2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer_23H2(vcmNewerOrEqual)');
+        CheckResult(IsWinServer_23H2(vcmNewer), IsWindowsServer, 'IsWinServer_23H2(vcmNeweIsWinServer_23H2)');
+
+        // 
+        CheckResult(IsWinServer_25H2(vcmOlder), False, 'IsWinServer_25H2(vcmOlder)');
+        CheckResult(IsWinServer_25H2(vcmOlderOrEqual), False, 'IsWinServer_25H2(vcmOlderOrEqual)');
+        CheckResult(IsWinServer_25H2(vcmEqual), False, 'IsWinServer_25H2(vcmEqual)');
+        CheckResult(IsWinServer_25H2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer_25H2(vcmNewerOrEqual)');
+        CheckResult(IsWinServer_25H2(vcmNewer), IsWindowsServer, 'IsWinServer_25H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin11_24H2(vcmOlder), False, 'IsWin11_24H2(vcmOlder)');
+        CheckResult(IsWin11_24H2(vcmOlderOrEqual), True, 'IsWin11_24H2(vcmOlderOrEqual)');
+        CheckResult(IsWin11_24H2(vcmEqual), True, 'IsWin11_24H2(vcmEqual)');
+        CheckResult(IsWin11_24H2(vcmNewerOrEqual), True, 'IsWin11_24H2(vcmNewerOrEqual)');
+        CheckResult(IsWin11_24H2(vcmNewer), False, 'IsWin11_24H2(vcmNewer)');
+
+        // 
+        CheckResult(IsWin11_25H2(vcmOlder), True, 'IsWin11_25H2(vcmOlder)');
+        CheckResult(IsWin11_25H2(vcmOlderOrEqual), True, 'IsWin11_25H2(vcmOlderOrEqual)');
+        CheckResult(IsWin11_25H2(vcmEqual), False, 'IsWin11_25H2(vcmEqual)');
+        CheckResult(IsWin11_25H2(vcmNewerOrEqual), False, 'IsWin11_25H2(vcmNewerOrEqual)');
+        CheckResult(IsWin11_25H2(vcmNewer), False, 'IsWin11_25H2(vcmNewer)');
+
+        // 
+        // CheckResult( (vcmOlder), False, ' (vcmOlder)');
+        // CheckResult( (vcmOlderOrEqual), False, ' (vcmOlderOrEqual)');
+        // CheckResult( (vcmEqual), False, ' (vcmEqual)');
+        // CheckResult( (vcmNewerOrEqual), True, ' (vcmNewerOrEqual)');
+        // CheckResult( (vcmNewer), True, ' (vcmNewer)');
+
       end;
   end;
 end;
