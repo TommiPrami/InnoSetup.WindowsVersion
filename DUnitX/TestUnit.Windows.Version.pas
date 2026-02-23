@@ -9,12 +9,17 @@ uses
 
 type
   TWindowsVersion = record
-    Major: Integer;
-    Minor: Integer;
-    Build: Integer;
-    ProductType: Integer;
+    Major: Cardinal;
+    Minor: Cardinal;
+    Build: Cardinal;
+    ProductType: Byte;
+    ServicePackMajor: Cardinal;  // Major version number of service pack
+    ServicePackMinor: Cardinal;  // Minor version number of service pack
+    NTPlatform: Boolean;         // True if an NT-based platform
+    SuiteMask: Word;
 
-    constructor Create(const AMajor, AMinor, ABuild, AProductType: Integer);
+    constructor Create(const AMajor, AMinor, ABuild: Cardinal; const AProductType: Byte; const AServicePackMajor: Cardinal = 0;
+      const AServicePackMinor: Cardinal = 0; const ANTPlatform: Boolean = True; const ASuiteMask: Word = 0);
     function ToString: string;
   end;
 
@@ -22,6 +27,7 @@ type
 
   procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
   procedure SetOsVersionToWin7;
+  procedure RaiseException(const AExceptionMessage: string);
 
 const
   // Constant values are the same as in Inno Setup
@@ -46,13 +52,19 @@ end;
 
 { TWindowsVersion }
 
-constructor TWindowsVersion.Create(const AMajor, AMinor, ABuild, AProductType: Integer);
+constructor TWindowsVersion.Create(const AMajor, AMinor, ABuild: Cardinal; const AProductType: Byte;
+  const AServicePackMajor: Cardinal = 0; const AServicePackMinor: Cardinal = 0; const ANTPlatform: Boolean = True;
+  const ASuiteMask: Word = 0);
 begin
   Major := AMajor;
   Minor := AMinor;
   Build := ABuild;
   //
   ProductType := AProductType;
+  ServicePackMajor := AServicePackMajor;
+  ServicePackMinor := AServicePackMinor;
+  NTPlatform := ANTPlatform;
+  SuiteMask := ASuiteMask;
 end;
 
 function TWindowsVersion.ToString: string;
@@ -77,6 +89,12 @@ begin
   else
     Result := AFalseStr;
 end;
+
+procedure RaiseException(const AExceptionMessage: string);
+begin
+  raise Exception.Create(AExceptionMessage);
+end;
+
 
 // INNO SETUP ROUTINES (TO TEST) ARE IN THE COMMON INC-FILE
 

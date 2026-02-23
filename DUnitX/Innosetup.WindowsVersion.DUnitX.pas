@@ -179,7 +179,6 @@ type
 
 implementation
 
-
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer;
   const AExcpectedResult: Boolean);
 var

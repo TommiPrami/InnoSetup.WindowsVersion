@@ -11,6 +11,28 @@ begin
   Result := not (LVersion.ProductType = VER_NT_WORKSTATION);
 end;
 
+function IsWindowsServerRecord(const AVersion: TWindowsVersion): Boolean;
+begin
+  Result := not (AVersion.ProductType = VER_NT_WORKSTATION);
+end;
+
+function MakeWindowsVersionRecord(const AMajor, AMinor, ABuild: Cardinal; const AServer: Boolean): TWindowsVersion;
+begin
+  Result.Major := AMajor;
+  Result.Minor := AMinor;
+  Result.Build := ABuild;
+
+  if AServer then
+    Result.ProductType :=  VER_NT_SERVER
+  else
+    Result.ProductType := VER_NT_WORKSTATION;
+  
+  Result.ServicePackMajor := 0; // TODO: Support for ServicePackMajor
+  Result.ServicePackMinor := 0;  // TODO: Support for ServicePackMinor
+  Result.NTPlatform := True; // True if an NT-based platform
+  Result.SuiteMask := 0; // TODO: Support for this?
+end;
+
 function GetWindowsBuildVersionStr(const AMajorVersionStr: string; const AVersion: TWindowsVersion): string;
 begin
   Result := 'Windows ' + AMajorVersionStr + ' (' + IntToStr(AVersion.Major) + '.' + IntToStr(AVersion.Minor) + '.'
@@ -18,23 +40,31 @@ begin
 end;
 
 function HandleVersion60(const AVersion: TWindowsVersion): string;
+var
+  LIsWindowsServer: Boolean;
 begin
+  LIsWindowsServer := IsWindowsServerRecord(AVersion);
+  
   if AVersion.Build = 6000 then
     Result := 'Windows Vista'
   else if AVersion.Build = 6001 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1')
+    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1')
   else if AVersion.Build = 6003 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista')
+    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista')
   else if AVersion.Build >= 7600 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 R2', 'Windows 7')
+    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 R2', 'Windows 7')
   else
     Result := GetWindowsBuildVersionStr('Vista', AVersion);
 end;
 
 function HandleVersion63(const AVersion: TWindowsVersion): string;
+var
+  LIsWindowsServer: Boolean;
 begin
+  LIsWindowsServer := IsWindowsServerRecord(AVersion);
+
   if AVersion.Build = 9200 then
-    Result := IfThenStr(IsWindowsServer, 'Windows Server 2012 R2', 'Windows 8.1')
+    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2012 R2', 'Windows 8.1')
   else if AVersion.Build >= 9600 then
     Result := 'Windows 8.1 Update 1'
   else
@@ -42,23 +72,27 @@ begin
 end;
 
 function HandleVersion10(const AVersion: TWindowsVersion): string;
+var
+  LIsWindowsServer: Boolean;
 begin
+  LIsWindowsServer := IsWindowsServerRecord(AVersion);
+
   case AVersion.Build of
     10240: Result := 'Windows 10 (1507)'; // Version 1507, Released 29.07.2015, EOS 09.05.2017
     10586: Result := 'Windows 10 (1511)'; // Version 1511, Released 10.11.2015, EOS 10.10.2017
-    14393: Result := IfThenStr(IsWindowsServer, 'Windows Server 2016', 'Windows 10 (1607)'); // Desktop: Version 1607, Released 02.08.2016, EOS 10.04.2018
+    14393: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2016', 'Windows 10 (1607)'); // Desktop: Version 1607, Released 02.08.2016, EOS 10.04.2018
     15063: Result := 'Windows 10 (1703)'; // Version 1703, Released 11.04.2017, EOS 09.10.2018
     16299: Result := 'Windows 10 (1709)'; // Version 1709, Released 17.10.2017, EOS 09.04.2019
     17134: Result := 'Windows 10 (1803)'; // Version 1803, Released 30.04.2018, EOS 12.11.2019
-    17763: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019', 'Windows 10 (1809)'); // DesktTop: Version 1809, Released 13.11.2018, EOS 10.11.2020
+    17763: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019', 'Windows 10 (1809)'); // DesktTop: Version 1809, Released 13.11.2018, EOS 10.11.2020
     18362: Result := 'Windows 10 (1903)'; // Version 1903, Released 21.05.2019, EOS 08.12.2020
-    18363: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (1909)', 'Windows 10 (1909)'); // Desktop: Version 1909, Released 12.11.2019, EOS 11.05.2021
-    19041: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (2004)', 'Windows 10 (2004)'); // Desktop: Version 2004, Released 27.05.2020, EOS 14.12.2021
-    19042: Result := IfThenStr(IsWindowsServer, 'Windows Server 2019 (20H2)', 'Windows 10 (20H2)'); // Desktop: Version 20H2, Released 20.10.2020, EOS 10.05.2022
+    18363: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (1909)', 'Windows 10 (1909)'); // Desktop: Version 1909, Released 12.11.2019, EOS 11.05.2021
+    19041: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (2004)', 'Windows 10 (2004)'); // Desktop: Version 2004, Released 27.05.2020, EOS 14.12.2021
+    19042: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (20H2)', 'Windows 10 (20H2)'); // Desktop: Version 20H2, Released 20.10.2020, EOS 10.05.2022
     19043: Result := 'Windows 10 (21H1)'; // Version 21H1, Released 18.05.2021, EOS 13.12.2022
     19044: Result := 'Windows 10 (21H2)'; // Version 21H2, Released 16.11.2021, EOS 13.06.2023
     19045: Result := 'Windows 10 (22H2)'; // Version 22H2, Released 18.10.2022, EOS 14.10.2025
-    20348: Result := IfThenStr(IsWindowsServer, 'Windows Server 2022', 'Windows 10 (21H2)');
+    20348: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2022', 'Windows 10 (21H2)');
     22000: Result := 'Windows 11 (21H2)'; // Version 21H2, Released 04.10.2021, EOS 10.10.2023
     22621: Result := 'Windows 11 (22H2)'; // Version 22H2, Released 20.09.2022, EOS 08.10.2024
     22631: Result := 'Windows 11 (23H2)'; // Version 23H2, Released 31.10.2023, EOS 11.11.2025
@@ -71,29 +105,38 @@ begin
   end
 end;
 
+function WindowsVersion(const AVersion: TWindowsVersion): string;
+var
+  LIsWindowsServer: Boolean;
+begin
+  LIsWindowsServer := IsWindowsServerRecord(AVersion);
+  
+  if AVersion.Major <= 5 then
+    Result := 'Windows XP'
+  else if AVersion.Major = 6 then
+  begin
+    case AVersion.Minor of
+      0: Result := HandleVersion60(AVersion);
+      1: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 R2 with Service Pack 1', 'Windows 7 SP1');
+      2: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2012', 'Windows 8');
+      3: Result := HandleVersion63(AVersion);
+    end;
+  end
+  else if AVersion.Major = 10 then
+    Result := HandleVersion10(AVersion)
+  else if AVersion.Major > 10 then
+    Result := GetWindowsBuildVersionStr('12', AVersion) //Maybe ??
+  else
+    Result := GetWindowsBuildVersionStr('', AVersion);
+end;
+
 function WindowsVersionStr: string;
 var
   LVersion: TWindowsVersion;
 begin
   GetWindowsVersionEx(LVersion);
 
-  if LVersion.Major <= 5 then
-    Result := 'Windows XP'
-  else if LVersion.Major = 6 then
-  begin
-    case LVersion.Minor of
-      0: Result := HandleVersion60(LVersion);
-      1: Result := IfThenStr(IsWindowsServer, 'Windows Server 2008 R2 with Service Pack 1', 'Windows 7 SP1');
-      2: Result := IfThenStr(IsWindowsServer, 'Windows Server 2012', 'Windows 8');
-      3: Result := HandleVersion63(LVersion);
-    end;
-  end
-  else if LVersion.Major = 10 then
-    Result := HandleVersion10(LVersion)
-  else if LVersion.Major > 10 then
-    Result := GetWindowsBuildVersionStr('12', LVersion) //Maybe ??
-  else
-    Result := GetWindowsBuildVersionStr('', LVersion);
+  Result := WindowsVersion(LVersion);
 end;
 
 function SkipVersion(const AVersionPart: Integer): Boolean;
@@ -194,21 +237,21 @@ begin
   if AComparedVersion.Major <= 0 then
   begin
     RaiseException('Major part of compared version must be greater than 0');
-    // TODO: mabe compare result to parameter and result would be error/NoError
+    // TODO: maybe compare result to parameter and result would be error/NoError
     Exit;
   end;
 
   if AVersionComparedTo.Major <= 0 then
   begin
-    RaiseException('Major part of comparedTO version must be greater than 0');
-    // TODO: mabe compare result to parameter and result would be error/NoError
+    RaiseException('Major part of comparedTo version must be greater than 0');
+    // TODO: maybe compare result to parameter and result would be error/NoError
     Exit;
   end;
 
   if SkipMinor(AComparedVersion) and not SkipBuild(AComparedVersion) then
   begin
-    RaiseException('Build part not skipped but minor part is, skippin must strat from the with the rightmost version part');
-    // TODO: mabe compare result to parameter and result would be error/NoError
+    RaiseException('Build part not skipped but minor part is, skipping must strat from the the rightmost version part');
+    // TODO: maybe compare result to parameter and result would be error/NoError
     Exit;
   end;
 
