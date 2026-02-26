@@ -78,26 +78,26 @@ begin
   LIsWindowsServer := IsWindowsServerRecord(AVersion);
 
   case AVersion.Build of
-    10240: Result := 'Windows 10 (1507)'; // Version 1507, Released 29.07.2015, EOS 09.05.2017
-    10586: Result := 'Windows 10 (1511)'; // Version 1511, Released 10.11.2015, EOS 10.10.2017
-    14393: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2016', 'Windows 10 (1607)'); // Desktop: Version 1607, Released 02.08.2016, EOS 10.04.2018
-    15063: Result := 'Windows 10 (1703)'; // Version 1703, Released 11.04.2017, EOS 09.10.2018
-    16299: Result := 'Windows 10 (1709)'; // Version 1709, Released 17.10.2017, EOS 09.04.2019
-    17134: Result := 'Windows 10 (1803)'; // Version 1803, Released 30.04.2018, EOS 12.11.2019
-    17763: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019', 'Windows 10 (1809)'); // DesktTop: Version 1809, Released 13.11.2018, EOS 10.11.2020
-    18362: Result := 'Windows 10 (1903)'; // Version 1903, Released 21.05.2019, EOS 08.12.2020
-    18363: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (1909)', 'Windows 10 (1909)'); // Desktop: Version 1909, Released 12.11.2019, EOS 11.05.2021
-    19041: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (2004)', 'Windows 10 (2004)'); // Desktop: Version 2004, Released 27.05.2020, EOS 14.12.2021
-    19042: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 (20H2)', 'Windows 10 (20H2)'); // Desktop: Version 20H2, Released 20.10.2020, EOS 10.05.2022
-    19043: Result := 'Windows 10 (21H1)'; // Version 21H1, Released 18.05.2021, EOS 13.12.2022
-    19044: Result := 'Windows 10 (21H2)'; // Version 21H2, Released 16.11.2021, EOS 13.06.2023
-    19045: Result := 'Windows 10 (22H2)'; // Version 22H2, Released 18.10.2022, EOS 14.10.2025
-    20348: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2022', 'Windows 10 (21H2)');
-    22000: Result := 'Windows 11 (21H2)'; // Version 21H2, Released 04.10.2021, EOS 10.10.2023
-    22621: Result := 'Windows 11 (22H2)'; // Version 22H2, Released 20.09.2022, EOS 08.10.2024
-    22631: Result := 'Windows 11 (23H2)'; // Version 23H2, Released 31.10.2023, EOS 11.11.2025
-    26100: Result := 'Windows 11 (24H2)'; // Version 24H2, Released 01.10.2024, EOS 13.10.2026
-    26200: Result := 'Windows 11 (25H2)'; // Version 25H2, Release Date: TBA, End of Mainstream Support: TBA, End of Enteprice support: TBA, LTCS Enterprise: TBA
+    10240: Result := 'Windows 10 1507'; // Version 1507, Released 29.07.2015, EOS 09.05.2017
+    10586: Result := 'Windows 10 1511'; // Version 1511, Released 10.11.2015, EOS 10.10.2017
+    14393: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2016', 'Windows 10 1607'); // Desktop: Version 1607, Released 02.08.2016, EOS 10.04.2018
+    15063: Result := 'Windows 10 1703'; // Version 1703, Released 11.04.2017, EOS 09.10.2018
+    16299: Result := 'Windows 10 1709'; // Version 1709, Released 17.10.2017, EOS 09.04.2019
+    17134: Result := 'Windows 10 1803'; // Version 1803, Released 30.04.2018, EOS 12.11.2019
+    17763: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019', 'Windows 10 1809'); // DesktTop: Version 1809, Released 13.11.2018, EOS 10.11.2020
+    18362: Result := 'Windows 10 1903'; // Version 1903, Released 21.05.2019, EOS 08.12.2020
+    18363: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 1909', 'Windows 10 1909'); // Desktop: Version 1909, Released 12.11.2019, EOS 11.05.2021
+    19041: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 2004', 'Windows 10 2004'); // Desktop: Version 2004, Released 27.05.2020, EOS 14.12.2021
+    19042: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 20H2', 'Windows 10 20H2'); // Desktop: Version 20H2, Released 20.10.2020, EOS 10.05.2022
+    19043: Result := 'Windows 10 21H1'; // Version 21H1, Released 18.05.2021, EOS 13.12.2022
+    19044: Result := 'Windows 10 21H2'; // Version 21H2, Released 16.11.2021, EOS 13.06.2023
+    19045: Result := 'Windows 10 22H2'; // Version 22H2, Released 18.10.2022, EOS 14.10.2025
+    20348: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2022', 'Windows 10 21H2');
+    22000: Result := 'Windows 11 21H2'; // Version 21H2, Released 04.10.2021, EOS 10.10.2023
+    22621: Result := 'Windows 11 22H2'; // Version 22H2, Released 20.09.2022, EOS 08.10.2024
+    22631: Result := 'Windows 11 23H2'; // Version 23H2, Released 31.10.2023, EOS 11.11.2025
+    26100: Result := 'Windows 11 24H2'; // Version 24H2, Released 01.10.2024, EOS 13.10.2026
+    26200: Result := 'Windows 11 25H2'; // Version 25H2, Release Date: TBA, End of Mainstream Support: TBA, End of Enteprice support: TBA, LTCS Enterprise: TBA
     25398: Result := 'Windows Server 23H2';
     26052: Result := 'Windows Server 2025'; // Released 01.11.2024,
     else
