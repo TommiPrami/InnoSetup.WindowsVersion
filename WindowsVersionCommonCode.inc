@@ -301,7 +301,7 @@ end;
 // 6.1.7600	Windows 7 or Windows Server 2008 R2
 function IsWin7(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
-  Result := IsWindowsVersion(6, 1, 0, ACompareMethod);
+  Result := IsWindowsVersion(6, 1, 7601, ACompareMethod);
 end;
 
 // Release Date: October 22, 2009
@@ -315,7 +315,7 @@ end;
 // 6.2.9200	Windows 8 or Windows Server 2012
 function IsWin8(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
-  Result := IsWindowsVersion(6, 2, 0, ACompareMethod);
+  Result := IsWindowsVersion(6, 2, 9200, ACompareMethod);
 end;
 
 // Release Date: October 30, 2012
@@ -329,7 +329,7 @@ end;
 // 6.3.9200	Windows 8.1 or Windows Server 2012 R2
 function IsWin81(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
-  Result := IsWindowsVersion(6, 3, 0, ACompareMethod);
+  Result := IsWindowsVersion(6, 3, 9600, ACompareMethod);
 end;
 
 // Release Date: October 18, 2013
