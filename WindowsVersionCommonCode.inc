@@ -298,7 +298,7 @@ begin
   Result := CompareVersions(LOSVersion, LComparedVersion, ACompareMethod);
 end;
 
-// 6.1.7600	Windows 7 or Windows Server 2008 R2
+// 6.1.7600  Windows 7 or Windows Server 2008 R2
 function IsWin7(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 1, 7601, ACompareMethod);
@@ -312,7 +312,7 @@ begin
   Result := IsWin7(ACompareMethod) and IsWindowsServer;
 end;
 
-// 6.2.9200	Windows 8 or Windows Server 2012
+// 6.2.9200  Windows 8 or Windows Server 2012
 function IsWin8(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 2, 9200, ACompareMethod);
@@ -326,7 +326,7 @@ begin
   Result := IsWin8(ACompareMethod) and IsWindowsServer;
 end;
 
-// 6.3.9200	Windows 8.1 or Windows Server 2012 R2
+// 6.3.9200  Windows 8.1 or Windows Server 2012 R2
 function IsWin81(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 3, 9600, ACompareMethod);
@@ -340,7 +340,7 @@ begin
   Result := IsWin81(ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.14393	Windows 10 Version 1607 (Anniversary Update) or Windows Server 2016 - Support end date: Apr 10, 2018
+// 10.0.14393  Windows 10 Version 1607 (Anniversary Update) or Windows Server 2016 - Support end date: Apr 10, 2018
 function IsWin10_1067(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 14393, ACompareMethod);
@@ -354,7 +354,7 @@ begin
   Result := IsWin10_1067(ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.17763	Windows 10 Version 1809 (October 2018 Update) or Windows Server 2019 - Support end date: Nov 10, 2020
+// 10.0.17763  Windows 10 Version 1809 (October 2018 Update) or Windows Server 2019 - Support end date: Nov 10, 2020
 function IsWin10_1809(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 17763, ACompareMethod);
@@ -386,25 +386,25 @@ begin
   Result :=  IsWindowsVersion(10, 0, 18362, ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.18362	Windows 10 Version 1903 (May 2019 Update) - Support end date: Dec 8, 2020
+// 10.0.18362  Windows 10 Version 1903 (May 2019 Update) - Support end date: Dec 8, 2020
 function IsWin10_1903(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 18362, ACompareMethod);
 end;
 
-// 10.0.19041	Windows 10 Version 2004 (May 2020 Update) - Support end date:  Dec 14, 2022
+// 10.0.19041  Windows 10 Version 2004 (May 2020 Update) - Support end date:  Dec 14, 2022
 function IsWin10_2004(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19041, ACompareMethod);
 end;
 
-// 10.0.19043	Windows 10 Version 21H1 (May 2021 Update) - Support end date: Dec 13, 2022
+// 10.0.19043  Windows 10 Version 21H1 (May 2021 Update) - Support end date: Dec 13, 2022
 function IsWin10_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19043, ACompareMethod);
 end;
 
-// 10.0.19044	Windows 10 Version 21H2 (November 2021 Update) - Support end date: Jun 13, 2023
+// 10.0.19044  Windows 10 Version 21H2 (November 2021 Update) - Support end date: Jun 13, 2023
 function IsWin10_21H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19044, ACompareMethod);
@@ -425,25 +425,25 @@ begin
   Result := IsWindowsVersion(10, 0, 20348, ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.22000	Windows 11 Version 21H2 - Support end date: October 10, 2023
+// 10.0.22000  Windows 11 Version 21H2 - Support end date: October 10, 2023
 function IsWin11_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22000, ACompareMethod);
 end;
 
-// 10.0.22621	Windows 11 Version 22H2 - Support end date: Oct 8, 2024
+// 10.0.22621  Windows 11 Version 22H2 - Support end date: Oct 8, 2024
 function IsWin11_22H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22621, ACompareMethod);
 end;
 
-// 10.0.22631	Windows 11 Version 23H2 - Support end date: Nov 11, 2025
+// 10.0.22631  Windows 11 Version 23H2 - Support end date: Nov 11, 2025
 function IsWin11_23H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22631, ACompareMethod);
 end;
 
-// 10.0.25398	Windows "11" Server Version 23H2 - Support end date:
+// 10.0.25398  Windows "11" Server Version 23H2 - Support end date:
 //  - Microsoft Windows Server containers (to be come Windows server 2025, possibly, not on LTS version)
 function IsWinServer_23H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
@@ -460,7 +460,7 @@ begin
 end;
 
 
-// 10.0.26100	Windows 11 Version 24H2
+// 10.0.26100  Windows 11 Version 24H2
 // Release Date: 01.10.2024
 // End of Mainstream Support: 13.10.2026
 // Enteprivce support: 12.10.2027
@@ -470,7 +470,7 @@ begin
   Result := IsWindowsVersion(10, 0, 26100, ACompareMethod);
 end;
 
-// 10.0.26100	Windows 11 Version 25H2
+// 10.0.26100  Windows 11 Version 25H2
 // Release Date: TBA
 // End of Mainstream Support: TBA
 // Enteprivce support: TBA
