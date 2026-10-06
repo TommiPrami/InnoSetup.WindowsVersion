@@ -246,18 +246,75 @@ type
     [TestCase('Home - ent only', '2;False', ';')]
     procedure HomeEditionDetection(const ASuiteMask: Integer; const AExpectedHome: Boolean);
 
-    // End-of-support date lookup + the pure date comparison.
+    // Security-support-end lookup (by build + track) + the pure date comparison.
     [Test]
-    [TestCase('EOS - before',       '19045;False;20250101;False', ';')]
-    [TestCase('EOS - after',        '19045;False;20251231;True', ';')]
-    [TestCase('EOS - on date',      '19045;False;20251014;False', ';')]
-    [TestCase('EOS - unknown TBA',  '26200;False;20991231;False', ';')]
-    [TestCase('EOS - consumer end', '26100;False;20270101;True', ';')]
-    [TestCase('EOS - ext still ok', '26100;True;20270101;False', ';')]
-    [TestCase('EOS - ext ended',    '26100;True;20280101;True', ';')]
-    [TestCase('EOS - not in table', '99999;False;20991231;False', ';')]
-    procedure SupportEndedCheck(const ABuild: Integer; const AExtended: Boolean;
+    [TestCase('EOS - W before',     '19045;stWorkstation;20250101;False', ';')]
+    [TestCase('EOS - W after',      '19045;stWorkstation;20251231;True', ';')]
+    [TestCase('EOS - W on date',    '19045;stWorkstation;20251014;False', ';')]
+    [TestCase('EOS - W no srv',     '19045;stServer;20991231;False', ';')]
+    [TestCase('EOS - 24H2 W end',   '26100;stWorkstation;20270101;True', ';')]
+    [TestCase('EOS - 24H2 E ok',    '26100;stEnterprise;20270101;False', ';')]
+    [TestCase('EOS - 24H2 E ended', '26100;stEnterprise;20280101;True', ';')]
+    [TestCase('EOS - 24H2 S ok',    '26100;stServer;20300101;False', ';')]   // Server 2025 security 2034
+    [TestCase('EOS - 24H2 S end',   '26100;stServer;20350101;True', ';')]
+    [TestCase('EOS - Srv2022 S',    '20348;stServer;20320101;True', ';')]    // Server 2022 security 2031-10-14
+    [TestCase('EOS - Srv2022 noW',  '20348;stWorkstation;20991231;False', ';')] // client-less build
+    [TestCase('EOS - not in table', '99999;stWorkstation;20991231;False', ';')]
+    procedure SupportEndedCheck(const ABuild: Integer; const ATrack: TWindowsSupportTrack;
       const ATodayYmd: Integer; const AExpectedEnded: Boolean);
+
+    // days-from-civil serial conversion (underpins the slack comparison).
+    [Test]
+    [TestCase('Serial epoch',  '19700101;0', ';')]
+    [TestCase('Serial +1',     '19700102;1', ';')]
+    [TestCase('Serial 1 year', '19710101;365', ';')]
+    [TestCase('Serial Y2000',  '20000101;10957', ';')]
+    [TestCase('Serial zero',   '0;0', ';')]
+    procedure SerialDate(const AYmd, AExpectedSerial: Integer);
+
+    // "past date + N days slack" comparison.
+    [Test]
+    [TestCase('Slack - within',  '20260101;20260301;100;False', ';')]
+    [TestCase('Slack - beyond',  '20260101;20260301;30;True', ';')]
+    [TestCase('Slack - zero eq', '20260101;20260101;0;False', ';')]
+    [TestCase('Slack - zero nx', '20260101;20260102;0;True', ';')]
+    [TestCase('Slack - unknown', '0;20991231;0;False', ';')]
+    procedure SlackCompare(const ADateYmd, ATodayYmd, ASlackDays: Integer; const AExpected: Boolean);
+
+    // Running-OS security-support predicate (fake OS). Client => Workstation
+    // track; Server SKU => Server track (resolved by GetCurrentSupportTrack).
+    [Test]
+    [TestCase('Cur - 22H2 ended',  '10;0;19045;False;20260101;True', ';')]
+    [TestCase('Cur - 22H2 ok',     '10;0;19045;False;20250101;False', ';')]
+    [TestCase('Cur - Win7 ended',  '6;1;7601;False;20200101;True', ';')]
+    [TestCase('Cur - future ok',   '10;0;99999;False;20991231;False', ';')]
+    [TestCase('Cur - Srv2022 ok',  '10;0;20348;True;20270101;False', ';')]  // Server track, security 2031
+    [TestCase('Cur - Srv2022 end', '10;0;20348;True;20320101;True', ';')]
+    procedure CurrentSecuritySupport(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean;
+      const ATodayYmd: Integer; const AExpectedEnded: Boolean);
+
+    // Edition detection from a fake GetProductInfo product type (+ Server SKU).
+    [Test]
+    [TestCase('Ed - Core',      'False;101;weHome', ';')]          // PRODUCT_CORE $65
+    [TestCase('Ed - Pro',       'False;48;weProfessional', ';')]   // PRODUCT_PROFESSIONAL $30
+    [TestCase('Ed - Pro WS',    'False;161;weProfessional', ';')]  // PRODUCT_PRO_WORKSTATION $A1
+    [TestCase('Ed - Pro Edu',   'False;164;weProfessional', ';')]  // PRODUCT_PRO_EDUCATION $A4
+    [TestCase('Ed - Ent',       'False;4;weEnterprise', ';')]      // PRODUCT_ENTERPRISE $04
+    [TestCase('Ed - Ent LTSC',  'False;125;weEnterprise', ';')]    // PRODUCT_ENTERPRISE_S $7D
+    [TestCase('Ed - Education', 'False;121;weEducation', ';')]     // PRODUCT_EDUCATION $79
+    [TestCase('Ed - Unknown',   'False;0;weUnknown', ';')]
+    [TestCase('Ed - Server',    'True;4;weServer', ';')]           // Server SKU wins over product type
+    procedure EditionDetection(const AServer: Boolean; const AProductType: Integer;
+      const AExpected: TWindowsEdition);
+
+    // The detected edition selects the support track: Enterprise/Education use
+    // the E track, so on build 26100 (24H2) they stay supported past the W date.
+    [Test]
+    [TestCase('Trk - Home W end',  '101;20270601;True', ';')]   // Home -> W track, 24H2 W end 2026-10-13
+    [TestCase('Trk - Ent E ok',    '4;20270601;False', ';')]    // Enterprise -> E track, E end 2027-10-12
+    [TestCase('Trk - Ent E end',   '4;20271101;True', ';')]
+    [TestCase('Trk - Edu E ok',    '121;20270601;False', ';')]  // Education -> E track
+    procedure EditionTrackSupport(const AProductType, ATodayYmd: Integer; const AExpectedEnded: Boolean);
   end;
 
 implementation
@@ -339,11 +396,45 @@ begin
   Assert.AreEqual(AExpectedHome, IsWindowsHomeEdition);
 end;
 
-procedure TInnoSetupWindowsVersion.SupportEndedCheck(const ABuild: Integer; const AExtended: Boolean;
+procedure TInnoSetupWindowsVersion.SupportEndedCheck(const ABuild: Integer; const ATrack: TWindowsSupportTrack;
   const ATodayYmd: Integer; const AExpectedEnded: Boolean);
 begin
-  var LEos := GetWindowsEndOfSupport(ABuild, AExtended);
+  var LEos := GetWindowsSecuritySupportEndByBuild(ABuild, ATrack);
   Assert.AreEqual(AExpectedEnded, IsSupportEnded(LEos, ATodayYmd));
+end;
+
+procedure TInnoSetupWindowsVersion.SerialDate(const AYmd, AExpectedSerial: Integer);
+begin
+  Assert.AreEqual(AExpectedSerial, YmdToSerial(AYmd));
+end;
+
+procedure TInnoSetupWindowsVersion.SlackCompare(const ADateYmd, ATodayYmd, ASlackDays: Integer;
+  const AExpected: Boolean);
+begin
+  Assert.AreEqual(AExpected, IsPastWithSlackDays(ADateYmd, ATodayYmd, ASlackDays));
+end;
+
+procedure TInnoSetupWindowsVersion.CurrentSecuritySupport(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean;
+  const ATodayYmd: Integer; const AExpectedEnded: Boolean);
+begin
+  SetFakeWindowsVersion(AMajor, AMinor, ABuild, AServer);
+  Assert.AreEqual(AExpectedEnded, IsWindowsSecuritySupportEnded(ATodayYmd));
+end;
+
+procedure TInnoSetupWindowsVersion.EditionDetection(const AServer: Boolean; const AProductType: Integer;
+  const AExpected: TWindowsEdition);
+begin
+  SetFakeWindowsVersion(10, 0, 19045, AServer);
+  SetFakeWindowsProductType(AProductType);
+  Assert.AreEqual(Ord(AExpected), Ord(GetWindowsEdition));
+end;
+
+procedure TInnoSetupWindowsVersion.EditionTrackSupport(const AProductType, ATodayYmd: Integer;
+  const AExpectedEnded: Boolean);
+begin
+  SetFakeWindowsVersion(10, 0, 26100, False);  // Windows 11 24H2 client
+  SetFakeWindowsProductType(AProductType);
+  Assert.AreEqual(AExpectedEnded, IsWindowsSecuritySupportEnded(ATodayYmd));
 end;
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer;

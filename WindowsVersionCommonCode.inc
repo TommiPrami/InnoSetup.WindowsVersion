@@ -11,10 +11,14 @@
 var
   GFakeOSVersionSet: Boolean;
   GFakeOSVersion: TWindowsVersion;
+  // Fake GetProductInfo product type (for edition detection tests).
+  GFakeProductTypeSet: Boolean;
+  GFakeProductType: Cardinal;
 
 procedure ClearFakeWindowsVersion;
 begin
   GFakeOSVersionSet := False;
+  GFakeProductTypeSet := False;
 end;
 
 // Single choke point: every OS-version query in this unit goes through here.
@@ -26,6 +30,25 @@ begin
     GetWindowsVersionEx(AVersion);
 end;
 
+// Sets the fake GetProductInfo product type (call independently of the fake OS
+// version), so edition detection can be unit tested.
+procedure SetFakeWindowsProductType(const AProductType: Cardinal);
+begin
+  GFakeProductType := AProductType;
+  GFakeProductTypeSet := True;
+end;
+
+// Single choke point for the product type. GetWindowsProductInfoType is the
+// environment-specific provider (Inno: real GetProductInfo WinAPI; DUnitX: a
+// stub), mirroring GetWindowsVersionEx.
+function GetActiveWindowsProductType: Cardinal;
+begin
+  if GFakeProductTypeSet then
+    Result := GFakeProductType
+  else
+    Result := GetWindowsProductInfoType;
+end;
+
 function IsWindowsServer: Boolean;
 var
   LVersion: TWindowsVersion;
@@ -35,17 +58,80 @@ begin
   Result := not (LVersion.ProductType = VER_NT_WORKSTATION);
 end;
 
-// True on a Home edition. Detected via the VER_SUITE_PERSONAL suite bit, which
-// is the only edition signal GetWindowsVersionEx exposes. NOTE: it cannot tell
-// Pro from Enterprise/Education (VER_SUITE_ENTERPRISE is the Server Enterprise
-// suite, not desktop Enterprise) - that split needs the GetProductInfo WinAPI.
-function IsWindowsHomeEdition: Boolean;
+// A subset of GetProductInfo's PRODUCT_* values - enough to pick an edition
+// family / support track. Not exhaustive; unlisted codes fall back to weUnknown
+// (which maps to the Workstation track). Server SKUs are detected via ProductType.
+const
+  PRODUCT_HOME_BASIC            = $00000002;
+  PRODUCT_HOME_PREMIUM          = $00000003;
+  PRODUCT_HOME_BASIC_N          = $00000005;
+  PRODUCT_HOME_PREMIUM_N        = $0000001A;
+  PRODUCT_CORE_COUNTRYSPECIFIC  = $00000063;
+  PRODUCT_CORE_N                = $00000062;
+  PRODUCT_CORE_SINGLELANGUAGE   = $00000064;
+  PRODUCT_CORE                  = $00000065;
+  PRODUCT_PROFESSIONAL          = $00000030;
+  PRODUCT_PROFESSIONAL_N        = $00000031;
+  PRODUCT_PROFESSIONAL_WMC      = $00000067;
+  PRODUCT_PRO_WORKSTATION       = $000000A1;
+  PRODUCT_PRO_WORKSTATION_N     = $000000A2;
+  PRODUCT_PRO_EDUCATION         = $000000A4;
+  PRODUCT_PRO_EDUCATION_N       = $000000A5;
+  PRODUCT_ENTERPRISE            = $00000004;
+  PRODUCT_ENTERPRISE_N          = $0000001B;
+  PRODUCT_ENTERPRISE_E          = $00000046;
+  PRODUCT_ENTERPRISE_EVALUATION = $00000048;
+  PRODUCT_ENTERPRISE_S          = $0000007D; // Enterprise LTSB/LTSC
+  PRODUCT_ENTERPRISE_S_N        = $0000007E;
+  PRODUCT_EDUCATION             = $00000079;
+  PRODUCT_EDUCATION_N           = $0000007A;
+
+// Running OS edition family (see TWindowsEdition). Server SKUs report weServer;
+// desktop editions come from GetProductInfo, with a VER_SUITE_PERSONAL fallback
+// to weHome when the product type is unknown.
+function GetWindowsEdition: TWindowsEdition;
 var
   LVersion: TWindowsVersion;
+  LProductType: Cardinal;
 begin
   GetActiveWindowsVersion(LVersion);
 
-  Result := (LVersion.SuiteMask and VER_SUITE_PERSONAL) <> 0;
+  if not (LVersion.ProductType = VER_NT_WORKSTATION) then
+  begin
+    Result := weServer;
+    Exit;
+  end;
+
+  LProductType := GetActiveWindowsProductType;
+
+  case LProductType of
+    PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_HOME_BASIC_N, PRODUCT_HOME_PREMIUM_N,
+    PRODUCT_CORE, PRODUCT_CORE_N, PRODUCT_CORE_COUNTRYSPECIFIC, PRODUCT_CORE_SINGLELANGUAGE:
+      Result := weHome;
+
+    PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_PROFESSIONAL_WMC,
+    PRODUCT_PRO_WORKSTATION, PRODUCT_PRO_WORKSTATION_N,
+    PRODUCT_PRO_EDUCATION, PRODUCT_PRO_EDUCATION_N:
+      Result := weProfessional;
+
+    PRODUCT_ENTERPRISE, PRODUCT_ENTERPRISE_N, PRODUCT_ENTERPRISE_E, PRODUCT_ENTERPRISE_EVALUATION,
+    PRODUCT_ENTERPRISE_S, PRODUCT_ENTERPRISE_S_N:
+      Result := weEnterprise;
+
+    PRODUCT_EDUCATION, PRODUCT_EDUCATION_N:
+      Result := weEducation;
+  else
+    if (LVersion.SuiteMask and VER_SUITE_PERSONAL) <> 0 then
+      Result := weHome
+    else
+      Result := weUnknown;
+  end;
+end;
+
+// True on a Home edition (GetProductInfo, with VER_SUITE_PERSONAL fallback).
+function IsWindowsHomeEdition: Boolean;
+begin
+  Result := GetWindowsEdition = weHome;
 end;
 
 function IsWindowsServerRecord(const AVersion: TWindowsVersion): Boolean;
@@ -127,53 +213,63 @@ end;
 // dynamic-array API (SetLength) that Delphi uses - a static array indexes the
 // same in both. Populated once by EnsureWindowsVersionsInited.
 var
-  GWindowsVersions: array[0..63] of TWindowsVersionRec;
+  GWindowsVersions: array[0..63] of TWindowsReleaseRecord;
   GWindowsVersionCount: Integer;
   GWindowsVersionsInited: Boolean;
 
 procedure AddWindowsVersion(const ABuild: Integer; const AName, AServerName: string;
-  const ARelease, AEndOfSupport, AEndOfSupportExtended: Integer);
+  const ARelease, AActiveW, ASecurityW, AActiveE, ASecurityE, AActiveS, ASecurityS: Integer);
 begin
   GWindowsVersions[GWindowsVersionCount].Build := ABuild;
   GWindowsVersions[GWindowsVersionCount].Name := AName;
   GWindowsVersions[GWindowsVersionCount].ServerName := AServerName;
   GWindowsVersions[GWindowsVersionCount].ReleaseDate := ARelease;
-  GWindowsVersions[GWindowsVersionCount].EndOfSupport := AEndOfSupport;
-  GWindowsVersions[GWindowsVersionCount].EndOfSupportExtended := AEndOfSupportExtended;
+  GWindowsVersions[GWindowsVersionCount].ActiveSupportEndW := AActiveW;
+  GWindowsVersions[GWindowsVersionCount].SecuritySupportEndW := ASecurityW;
+  GWindowsVersions[GWindowsVersionCount].ActiveSupportEndE := AActiveE;
+  GWindowsVersions[GWindowsVersionCount].SecuritySupportEndE := ASecurityE;
+  GWindowsVersions[GWindowsVersionCount].ActiveSupportEndS := AActiveS;
+  GWindowsVersions[GWindowsVersionCount].SecuritySupportEndS := ASecurityS;
 
   GWindowsVersionCount := GWindowsVersionCount + 1;
 end;
 
+// Support dates from endoflife.date/windows and /windows-server (snapshot
+// 2026-10-06; refresh when new releases ship). Client LTSC / IoT cycles are
+// intentionally excluded. Tracks: W = Workstation (Home/Pro/Pro Edu/Pro WS),
+// E = Enterprise/Education, S = Server (LTSC/AC). Server columns are 0 for
+// builds without a Server SKU; client columns are 0 for Server-only builds.
 procedure EnsureWindowsVersionsInited;
 begin
   if GWindowsVersionsInited then
     Exit;
 
   GWindowsVersionCount := 0;
-  //                 Build   Client name            Server name (''=same)        Release   EndOfSupport  Extended/Ent
-  AddWindowsVersion(10240, 'Windows 10 1507',       '',                          20150729, 20170509,     0);
-  AddWindowsVersion(10586, 'Windows 10 1511',       '',                          20151110, 20171010,     0);
-  AddWindowsVersion(14393, 'Windows 10 1607',       'Windows Server 2016',       20160802, 20180410,     0);
-  AddWindowsVersion(15063, 'Windows 10 1703',       '',                          20170411, 20181009,     0);
-  AddWindowsVersion(16299, 'Windows 10 1709',       '',                          20171017, 20190409,     0);
-  AddWindowsVersion(17134, 'Windows 10 1803',       '',                          20180430, 20191112,     0);
-  AddWindowsVersion(17763, 'Windows 10 1809',       'Windows Server 2019',       20181113, 20201110,     0);
-  AddWindowsVersion(18362, 'Windows 10 1903',       '',                          20190521, 20201208,     0);
-  AddWindowsVersion(18363, 'Windows 10 1909',       'Windows Server 2019 1909',  20191112, 20210511,     0);
-  AddWindowsVersion(19041, 'Windows 10 2004',       'Windows Server 2019 2004',  20200527, 20211214,     0);
-  AddWindowsVersion(19042, 'Windows 10 20H2',       'Windows Server 2019 20H2',  20201020, 20220510,     0);
-  AddWindowsVersion(19043, 'Windows 10 21H1',       '',                          20210518, 20221213,     0);
-  AddWindowsVersion(19044, 'Windows 10 21H2',       '',                          20211116, 20230613,     0);
-  AddWindowsVersion(19045, 'Windows 10 22H2',       '',                          20221018, 20251014,     0);
-  AddWindowsVersion(20348, 'Windows 10 21H2',       'Windows Server 2022',       20210818, 20261013,     20311014);
-  AddWindowsVersion(22000, 'Windows 11 21H2',       '',                          20211004, 20231010,     0);
-  AddWindowsVersion(22621, 'Windows 11 22H2',       '',                          20220920, 20241008,     0);
-  AddWindowsVersion(22631, 'Windows 11 23H2',       '',                          20231031, 20251111,     0);
-  AddWindowsVersion(25398, 'Windows Server 23H2',   '',                          0,        0,            0);
-  AddWindowsVersion(26052, 'Windows Server 2025',   '',                          20241101, 20291113,     20341114);
-  AddWindowsVersion(26100, 'Windows 11 24H2',       '',                          20241001, 20261013,     20271012);
-  AddWindowsVersion(26200, 'Windows 11 25H2',       '',                          20250930, 0,            0);
-  AddWindowsVersion(26300, 'Windows 11 26H2',       '',                          20260930, 0,            0);
+  //                 Build   Client name            Server name (''=same)        Release   ActiveW   SecurityW ActiveE   SecurityE ActiveS   SecurityS
+  AddWindowsVersion(10240, 'Windows 10 1507',       '',                          20150729, 20170509, 20170509, 20170509, 20170509, 0,        0);
+  AddWindowsVersion(10586, 'Windows 10 1511',       '',                          20151110, 20171010, 20171010, 20171010, 20171010, 0,        0);
+  AddWindowsVersion(14393, 'Windows 10 1607',       'Windows Server 2016',       20160802, 20180410, 20180410, 20190409, 20190409, 20220111, 20270112);
+  AddWindowsVersion(15063, 'Windows 10 1703',       '',                          20170411, 20181009, 20181009, 20191008, 20191008, 0,        0);
+  AddWindowsVersion(16299, 'Windows 10 1709',       '',                          20171017, 20190409, 20190409, 20201013, 20201013, 20190409, 20190409);
+  AddWindowsVersion(17134, 'Windows 10 1803',       '',                          20180430, 20191112, 20191112, 20200511, 20210511, 20191112, 20191112);
+  AddWindowsVersion(17763, 'Windows 10 1809',       'Windows Server 2019',       20181113, 20201110, 20201110, 20210511, 20210511, 20240109, 20290109);
+  AddWindowsVersion(18362, 'Windows 10 1903',       '',                          20190521, 20201208, 20201208, 20201208, 20201208, 20201208, 20201208);
+  AddWindowsVersion(18363, 'Windows 10 1909',       'Windows Server 2019 1909',  20191112, 20210511, 20210511, 20220510, 20220510, 20210511, 20210511);
+  AddWindowsVersion(19041, 'Windows 10 2004',       'Windows Server 2019 2004',  20200527, 20211214, 20211214, 20211214, 20211214, 20211214, 20211214);
+  AddWindowsVersion(19042, 'Windows 10 20H2',       'Windows Server 2019 20H2',  20201020, 20220510, 20220510, 20230509, 20230509, 20220809, 20220809);
+  AddWindowsVersion(19043, 'Windows 10 21H1',       '',                          20210518, 20221213, 20221213, 20221213, 20221213, 0,        0);
+  AddWindowsVersion(19044, 'Windows 10 21H2',       '',                          20211116, 20230613, 20230613, 20240611, 20240611, 0,        0);
+  AddWindowsVersion(19045, 'Windows 10 22H2',       '',                          20221018, 20251014, 20251014, 20251014, 20251014, 0,        0);
+  AddWindowsVersion(20348, 'Windows 10 21H2',       'Windows Server 2022',       20210818, 0,        0,        0,        0,        20261013, 20311014);
+  AddWindowsVersion(22000, 'Windows 11 21H2',       '',                          20211004, 20231010, 20231010, 20241008, 20241008, 0,        0);
+  AddWindowsVersion(22621, 'Windows 11 22H2',       '',                          20220920, 20241008, 20241008, 20251014, 20251014, 0,        0);
+  AddWindowsVersion(22631, 'Windows 11 23H2',       '',                          20231031, 20251111, 20251111, 20261110, 20261110, 0,        0);
+  AddWindowsVersion(25398, 'Windows Server 23H2',   '',                          20231024, 0,        0,        0,        0,        20260512, 20260512);
+  AddWindowsVersion(26052, 'Windows Server 2025',   '',                          20241101, 0,        0,        0,        0,        0,        0);
+  AddWindowsVersion(26100, 'Windows 11 24H2',       '',                          20241001, 20261013, 20261013, 20271012, 20271012, 20291113, 20341114);
+  AddWindowsVersion(26200, 'Windows 11 25H2',       '',                          20250930, 20271012, 20271012, 20281010, 20281010, 0,        0);
+  AddWindowsVersion(26300, 'Windows 11 26H2',       '',                          20260930, 20281010, 20281010, 20291009, 20291009, 0,        0);
+  AddWindowsVersion(28000, 'Windows 11 26H1',       '',                          20260210, 20280314, 20280314, 20290313, 20290313, 0,        0);
 
   GWindowsVersionsInited := True;
 end;
@@ -222,10 +318,9 @@ begin
     Result := GetWindowsBuildVersionStr(IfThenStr(AVersion.Build >= 22000, '11', '10'), AVersion);
 end;
 
-// End-of-support date (YYYYMMDD) for a Win10/11 build, 0 if unknown. When
-// AExtended is True returns the Enterprise/Education / extended date if the
-// table has one, otherwise the consumer date.
-function GetWindowsEndOfSupport(const ABuild: Integer; const AExtended: Boolean): Integer;
+// Active (mainstream) support end (YYYYMMDD) for a build on the given track,
+// 0 if unknown / not applicable for that track.
+function GetWindowsActiveSupportEndByBuild(const ABuild: Integer; const ATrack: TWindowsSupportTrack): Integer;
 var
   LIndex: Integer;
 begin
@@ -234,18 +329,145 @@ begin
   LIndex := FindWindowsVersionIndex(ABuild);
   if LIndex >= 0 then
   begin
-    if AExtended and (GWindowsVersions[LIndex].EndOfSupportExtended <> 0) then
-      Result := GWindowsVersions[LIndex].EndOfSupportExtended
+    if ATrack = stServer then
+      Result := GWindowsVersions[LIndex].ActiveSupportEndS
+    else if ATrack = stEnterprise then
+      Result := GWindowsVersions[LIndex].ActiveSupportEndE
     else
-      Result := GWindowsVersions[LIndex].EndOfSupport;
+      Result := GWindowsVersions[LIndex].ActiveSupportEndW;
   end;
 end;
 
-// Pure date comparison. AEndOfSupportYmd and ATodayYmd are YYYYMMDD. A zero EOS
-// means "unknown / not announced" and is treated as still supported.
+// Security support end (EOL, YYYYMMDD) for a build on the given track, 0 if
+// unknown / not applicable for that track.
+function GetWindowsSecuritySupportEndByBuild(const ABuild: Integer; const ATrack: TWindowsSupportTrack): Integer;
+var
+  LIndex: Integer;
+begin
+  Result := 0;
+
+  LIndex := FindWindowsVersionIndex(ABuild);
+  if LIndex >= 0 then
+  begin
+    if ATrack = stServer then
+      Result := GWindowsVersions[LIndex].SecuritySupportEndS
+    else if ATrack = stEnterprise then
+      Result := GWindowsVersions[LIndex].SecuritySupportEndE
+    else
+      Result := GWindowsVersions[LIndex].SecuritySupportEndW;
+  end;
+end;
+
+// Days since 1970-01-01 for a YYYYMMDD date (Howard Hinnant's days_from_civil,
+// pure integer math - works identically in Inno PascalScript and Delphi). Lets
+// callers add a day-count "slack" to a date; 0 in -> 0 out.
+function YmdToSerial(const AYmd: Integer): Integer;
+var
+  LYear, LMonth, LDay, LEra, LYoe, LDoy, LDoe: Integer;
+begin
+  if AYmd <= 0 then
+  begin
+    Result := 0;
+    Exit;
+  end;
+
+  LYear := AYmd div 10000;
+  LMonth := (AYmd div 100) mod 100;
+  LDay := AYmd mod 100;
+
+  if LMonth <= 2 then
+    LYear := LYear - 1;
+
+  if LYear >= 0 then
+    LEra := LYear div 400
+  else
+    LEra := (LYear - 399) div 400;
+
+  LYoe := LYear - LEra * 400;
+
+  if LMonth > 2 then
+    LDoy := (153 * (LMonth - 3) + 2) div 5 + LDay - 1
+  else
+    LDoy := (153 * (LMonth + 9) + 2) div 5 + LDay - 1;
+
+  LDoe := LYoe * 365 + LYoe div 4 - LYoe div 100 + LDoy;
+
+  Result := LEra * 146097 + LDoe - 719468;
+end;
+
+// True when ATodayYmd is more than ASlackDays past ADateYmd. A zero date means
+// "unknown / not announced" and is treated as not-yet-past. Pass slack 0 for a
+// plain "today is after the date" test; pass e.g. 100 to allow 100 days grace.
+function IsPastWithSlackDays(const ADateYmd, ATodayYmd, ASlackDays: Integer): Boolean;
+begin
+  Result := (ADateYmd <> 0) and (YmdToSerial(ATodayYmd) > YmdToSerial(ADateYmd) + ASlackDays);
+end;
+
+// Pure "has this date passed" check (YYYYMMDD compare, no slack). 0 = unknown.
 function IsSupportEnded(const AEndOfSupportYmd, ATodayYmd: Integer): Boolean;
 begin
   Result := (AEndOfSupportYmd <> 0) and (ATodayYmd > AEndOfSupportYmd);
+end;
+
+// --- Current-OS convenience ---
+// Track for the running OS, from its edition: Server SKUs use the Server track,
+// Enterprise/Education the Enterprise track, everything else (Home, Pro, Pro WS,
+// Pro Education, or unknown) the Workstation track.
+function GetCurrentSupportTrack: TWindowsSupportTrack;
+begin
+  case GetWindowsEdition of
+    weServer:
+      Result := stServer;
+    weEnterprise, weEducation:
+      Result := stEnterprise;
+  else
+    Result := stWorkstation;
+  end;
+end;
+
+function GetWindowsActiveSupportEnd: Integer;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  Result := GetWindowsActiveSupportEndByBuild(LVersion.Build, GetCurrentSupportTrack);
+end;
+
+function GetWindowsSecuritySupportEnd: Integer;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  Result := GetWindowsSecuritySupportEndByBuild(LVersion.Build, GetCurrentSupportTrack);
+end;
+
+// True when the running OS is past active (mainstream) support. Anything older
+// than Windows 10 is always past support; an unknown (newer-than-table) Win10+
+// build is assumed still supported.
+function IsWindowsActiveSupportEnded(const ATodayYmd: Integer): Boolean;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+
+  if LVersion.Major < 10 then
+    Result := True
+  else
+    Result := IsSupportEnded(GetWindowsActiveSupportEndByBuild(LVersion.Build, GetCurrentSupportTrack), ATodayYmd);
+end;
+
+// True when the running OS is past security support (EOL). Same older/unknown
+// rules as IsWindowsActiveSupportEnded.
+function IsWindowsSecuritySupportEnded(const ATodayYmd: Integer): Boolean;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+
+  if LVersion.Major < 10 then
+    Result := True
+  else
+    Result := IsSupportEnded(GetWindowsSecuritySupportEndByBuild(LVersion.Build, GetCurrentSupportTrack), ATodayYmd);
 end;
 
 function WindowsVersion(const AVersion: TWindowsVersion): string;

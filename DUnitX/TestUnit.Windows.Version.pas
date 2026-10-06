@@ -28,12 +28,20 @@ type
   function WindowsVersionStr: string;
   function WindowsNameForBuild(const ABuild: Integer; const AServer: Boolean): string;
   function IsWindowsHomeEdition: Boolean;
-  function GetWindowsEndOfSupport(const ABuild: Integer; const AExtended: Boolean): Integer;
+  function GetWindowsEdition: TWindowsEdition;
+  function GetCurrentSupportTrack: TWindowsSupportTrack;
+  function GetWindowsActiveSupportEndByBuild(const ABuild: Integer; const ATrack: TWindowsSupportTrack): Integer;
+  function GetWindowsSecuritySupportEndByBuild(const ABuild: Integer; const ATrack: TWindowsSupportTrack): Integer;
+  function IsWindowsActiveSupportEnded(const ATodayYmd: Integer): Boolean;
+  function IsWindowsSecuritySupportEnded(const ATodayYmd: Integer): Boolean;
   function IsSupportEnded(const AEndOfSupportYmd, ATodayYmd: Integer): Boolean;
+  function IsPastWithSlackDays(const ADateYmd, ATodayYmd, ASlackDays: Integer): Boolean;
+  function YmdToSerial(const AYmd: Integer): Integer;
 
   // Fake OS controls (defined in the shared common code) exposed for tests.
   procedure SetFakeWindowsVersion(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean);
   procedure SetFakeWindowsSuiteMask(const ASuiteMask: Integer);
+  procedure SetFakeWindowsProductType(const AProductType: Cardinal);
   procedure ClearFakeWindowsVersion;
 
   procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
@@ -92,6 +100,14 @@ end;
 procedure GetWindowsVersionEx(out AWindowsVersion: TWindowsVersion);
 begin
   AWindowsVersion := GOSVersion;
+end;
+
+// Environment provider for the product type. In the DUnitX harness there is no
+// real GetProductInfo call; tests drive edition detection through the fake
+// (SetFakeWindowsProductType), so the stub reports "undefined".
+function GetWindowsProductInfoType: Cardinal;
+begin
+  Result := 0;
 end;
 
 function IfThenStr(const ABoolValue: Boolean; const ATrueStr, AFalseStr: string): string;
