@@ -2,13 +2,50 @@
 
 // Common code in between InnoSetup and Delphi-Unittest code
 
+// Optional fake OS version, for unit testing. When not set (the default), the
+// real GetWindowsVersionEx is used, so normal use is unaffected. When set via
+// SetFakeWindowsVersion, every OS-version query in this unit uses the fake, so
+// both the DUnitX tests and the Inno test installer can assert behaviour
+// against a known Windows version. SetFakeWindowsVersion is defined further
+// down, right after MakeWindowsVersionRecord (which it reuses).
+var
+  GFakeOSVersionSet: Boolean;
+  GFakeOSVersion: TWindowsVersion;
+
+procedure ClearFakeWindowsVersion;
+begin
+  GFakeOSVersionSet := False;
+end;
+
+// Single choke point: every OS-version query in this unit goes through here.
+procedure GetActiveWindowsVersion(var AVersion: TWindowsVersion);
+begin
+  if GFakeOSVersionSet then
+    AVersion := GFakeOSVersion
+  else
+    GetWindowsVersionEx(AVersion);
+end;
+
 function IsWindowsServer: Boolean;
 var
   LVersion: TWindowsVersion;
 begin
-  GetWindowsVersionEx(LVersion);
+  GetActiveWindowsVersion(LVersion);
 
   Result := not (LVersion.ProductType = VER_NT_WORKSTATION);
+end;
+
+// True on a Home edition. Detected via the VER_SUITE_PERSONAL suite bit, which
+// is the only edition signal GetWindowsVersionEx exposes. NOTE: it cannot tell
+// Pro from Enterprise/Education (VER_SUITE_ENTERPRISE is the Server Enterprise
+// suite, not desktop Enterprise) - that split needs the GetProductInfo WinAPI.
+function IsWindowsHomeEdition: Boolean;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+
+  Result := (LVersion.SuiteMask and VER_SUITE_PERSONAL) <> 0;
 end;
 
 function IsWindowsServerRecord(const AVersion: TWindowsVersion): Boolean;
@@ -31,6 +68,20 @@ begin
   Result.ServicePackMinor := 0;  // TODO: Support for ServicePackMinor
   Result.NTPlatform := True; // True if an NT-based platform
   Result.SuiteMask := 0; // TODO: Support for this?
+end;
+
+// Enables the fake OS version used by GetActiveWindowsVersion (see top of file).
+procedure SetFakeWindowsVersion(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean);
+begin
+  GFakeOSVersion := MakeWindowsVersionRecord(AMajor, AMinor, ABuild, AServer);
+  GFakeOSVersionSet := True;
+end;
+
+// Sets the SuiteMask of the current fake OS (call after SetFakeWindowsVersion),
+// so edition detection (e.g. IsWindowsHomeEdition) can be unit tested.
+procedure SetFakeWindowsSuiteMask(const ASuiteMask: Integer);
+begin
+  GFakeOSVersion.SuiteMask := ASuiteMask;
 end;
 
 function GetWindowsBuildVersionStr(const AMajorVersionStr: string; const AVersion: TWindowsVersion): string;
@@ -71,38 +122,130 @@ begin
     Result := GetWindowsBuildVersionStr('8.1', AVersion);
 end;
 
-function HandleVersion10(const AVersion: TWindowsVersion): string;
+// Windows 10/11 era lookup table. Fixed-size static array + count, because Inno
+// Setup's PascalScript supports neither initialized constant arrays nor the
+// dynamic-array API (SetLength) that Delphi uses - a static array indexes the
+// same in both. Populated once by EnsureWindowsVersionsInited.
 var
-  LIsWindowsServer: Boolean;
-begin
-  LIsWindowsServer := IsWindowsServerRecord(AVersion);
+  GWindowsVersions: array[0..63] of TWindowsVersionRec;
+  GWindowsVersionCount: Integer;
+  GWindowsVersionsInited: Boolean;
 
-  case AVersion.Build of
-    10240: Result := 'Windows 10 1507'; // Version 1507, Released 29.07.2015, EOS 09.05.2017
-    10586: Result := 'Windows 10 1511'; // Version 1511, Released 10.11.2015, EOS 10.10.2017
-    14393: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2016', 'Windows 10 1607'); // Desktop: Version 1607, Released 02.08.2016, EOS 10.04.2018
-    15063: Result := 'Windows 10 1703'; // Version 1703, Released 11.04.2017, EOS 09.10.2018
-    16299: Result := 'Windows 10 1709'; // Version 1709, Released 17.10.2017, EOS 09.04.2019
-    17134: Result := 'Windows 10 1803'; // Version 1803, Released 30.04.2018, EOS 12.11.2019
-    17763: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019', 'Windows 10 1809'); // DesktTop: Version 1809, Released 13.11.2018, EOS 10.11.2020
-    18362: Result := 'Windows 10 1903'; // Version 1903, Released 21.05.2019, EOS 08.12.2020
-    18363: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 1909', 'Windows 10 1909'); // Desktop: Version 1909, Released 12.11.2019, EOS 11.05.2021
-    19041: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 2004', 'Windows 10 2004'); // Desktop: Version 2004, Released 27.05.2020, EOS 14.12.2021
-    19042: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2019 20H2', 'Windows 10 20H2'); // Desktop: Version 20H2, Released 20.10.2020, EOS 10.05.2022
-    19043: Result := 'Windows 10 21H1'; // Version 21H1, Released 18.05.2021, EOS 13.12.2022
-    19044: Result := 'Windows 10 21H2'; // Version 21H2, Released 16.11.2021, EOS 13.06.2023
-    19045: Result := 'Windows 10 22H2'; // Version 22H2, Released 18.10.2022, EOS 14.10.2025
-    20348: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2022', 'Windows 10 21H2');
-    22000: Result := 'Windows 11 21H2'; // Version 21H2, Released 04.10.2021, EOS 10.10.2023
-    22621: Result := 'Windows 11 22H2'; // Version 22H2, Released 20.09.2022, EOS 08.10.2024
-    22631: Result := 'Windows 11 23H2'; // Version 23H2, Released 31.10.2023, EOS 11.11.2025
-    26100: Result := 'Windows 11 24H2'; // Version 24H2, Released 01.10.2024, EOS 13.10.2026
-    26200: Result := 'Windows 11 25H2'; // Version 25H2, Release Date: TBA, End of Mainstream Support: TBA, End of Enteprice support: TBA, LTCS Enterprise: TBA
-    25398: Result := 'Windows Server 23H2';
-    26052: Result := 'Windows Server 2025'; // Released 01.11.2024,
+procedure AddWindowsVersion(const ABuild: Integer; const AName, AServerName: string;
+  const ARelease, AEndOfSupport, AEndOfSupportExtended: Integer);
+begin
+  GWindowsVersions[GWindowsVersionCount].Build := ABuild;
+  GWindowsVersions[GWindowsVersionCount].Name := AName;
+  GWindowsVersions[GWindowsVersionCount].ServerName := AServerName;
+  GWindowsVersions[GWindowsVersionCount].ReleaseDate := ARelease;
+  GWindowsVersions[GWindowsVersionCount].EndOfSupport := AEndOfSupport;
+  GWindowsVersions[GWindowsVersionCount].EndOfSupportExtended := AEndOfSupportExtended;
+
+  GWindowsVersionCount := GWindowsVersionCount + 1;
+end;
+
+procedure EnsureWindowsVersionsInited;
+begin
+  if GWindowsVersionsInited then
+    Exit;
+
+  GWindowsVersionCount := 0;
+  //                 Build   Client name            Server name (''=same)        Release   EndOfSupport  Extended/Ent
+  AddWindowsVersion(10240, 'Windows 10 1507',       '',                          20150729, 20170509,     0);
+  AddWindowsVersion(10586, 'Windows 10 1511',       '',                          20151110, 20171010,     0);
+  AddWindowsVersion(14393, 'Windows 10 1607',       'Windows Server 2016',       20160802, 20180410,     0);
+  AddWindowsVersion(15063, 'Windows 10 1703',       '',                          20170411, 20181009,     0);
+  AddWindowsVersion(16299, 'Windows 10 1709',       '',                          20171017, 20190409,     0);
+  AddWindowsVersion(17134, 'Windows 10 1803',       '',                          20180430, 20191112,     0);
+  AddWindowsVersion(17763, 'Windows 10 1809',       'Windows Server 2019',       20181113, 20201110,     0);
+  AddWindowsVersion(18362, 'Windows 10 1903',       '',                          20190521, 20201208,     0);
+  AddWindowsVersion(18363, 'Windows 10 1909',       'Windows Server 2019 1909',  20191112, 20210511,     0);
+  AddWindowsVersion(19041, 'Windows 10 2004',       'Windows Server 2019 2004',  20200527, 20211214,     0);
+  AddWindowsVersion(19042, 'Windows 10 20H2',       'Windows Server 2019 20H2',  20201020, 20220510,     0);
+  AddWindowsVersion(19043, 'Windows 10 21H1',       '',                          20210518, 20221213,     0);
+  AddWindowsVersion(19044, 'Windows 10 21H2',       '',                          20211116, 20230613,     0);
+  AddWindowsVersion(19045, 'Windows 10 22H2',       '',                          20221018, 20251014,     0);
+  AddWindowsVersion(20348, 'Windows 10 21H2',       'Windows Server 2022',       20210818, 20261013,     20311014);
+  AddWindowsVersion(22000, 'Windows 11 21H2',       '',                          20211004, 20231010,     0);
+  AddWindowsVersion(22621, 'Windows 11 22H2',       '',                          20220920, 20241008,     0);
+  AddWindowsVersion(22631, 'Windows 11 23H2',       '',                          20231031, 20251111,     0);
+  AddWindowsVersion(25398, 'Windows Server 23H2',   '',                          0,        0,            0);
+  AddWindowsVersion(26052, 'Windows Server 2025',   '',                          20241101, 20291113,     20341114);
+  AddWindowsVersion(26100, 'Windows 11 24H2',       '',                          20241001, 20261013,     20271012);
+  AddWindowsVersion(26200, 'Windows 11 25H2',       '',                          20250930, 0,            0);
+  AddWindowsVersion(26300, 'Windows 11 26H2',       '',                          20260930, 0,            0);
+
+  GWindowsVersionsInited := True;
+end;
+
+// Index of the row for ABuild, or -1 if not in the table.
+function FindWindowsVersionIndex(const ABuild: Integer): Integer;
+var
+  LIndex: Integer;
+begin
+  EnsureWindowsVersionsInited;
+
+  Result := -1;
+
+  for LIndex := 0 to GWindowsVersionCount - 1 do
+  begin
+    if GWindowsVersions[LIndex].Build = ABuild then
+    begin
+      Result := LIndex;
+      Break;
+    end;
+  end;
+end;
+
+// Name for a Win10/11 build, '' if not found. Uses the Server name on Server SKUs.
+function WindowsNameForBuild(const ABuild: Integer; const AServer: Boolean): string;
+var
+  LIndex: Integer;
+begin
+  Result := '';
+
+  LIndex := FindWindowsVersionIndex(ABuild);
+  if LIndex >= 0 then
+  begin
+    if AServer and (GWindowsVersions[LIndex].ServerName <> '') then
+      Result := GWindowsVersions[LIndex].ServerName
     else
-      Result := GetWindowsBuildVersionStr(IfThenStr(AVersion.Build >= 22000, '11', '10'), AVersion);
-  end
+      Result := GWindowsVersions[LIndex].Name;
+  end;
+end;
+
+function HandleVersion10(const AVersion: TWindowsVersion): string;
+begin
+  Result := WindowsNameForBuild(AVersion.Build, IsWindowsServerRecord(AVersion));
+
+  if Result = '' then
+    Result := GetWindowsBuildVersionStr(IfThenStr(AVersion.Build >= 22000, '11', '10'), AVersion);
+end;
+
+// End-of-support date (YYYYMMDD) for a Win10/11 build, 0 if unknown. When
+// AExtended is True returns the Enterprise/Education / extended date if the
+// table has one, otherwise the consumer date.
+function GetWindowsEndOfSupport(const ABuild: Integer; const AExtended: Boolean): Integer;
+var
+  LIndex: Integer;
+begin
+  Result := 0;
+
+  LIndex := FindWindowsVersionIndex(ABuild);
+  if LIndex >= 0 then
+  begin
+    if AExtended and (GWindowsVersions[LIndex].EndOfSupportExtended <> 0) then
+      Result := GWindowsVersions[LIndex].EndOfSupportExtended
+    else
+      Result := GWindowsVersions[LIndex].EndOfSupport;
+  end;
+end;
+
+// Pure date comparison. AEndOfSupportYmd and ATodayYmd are YYYYMMDD. A zero EOS
+// means "unknown / not announced" and is treated as still supported.
+function IsSupportEnded(const AEndOfSupportYmd, ATodayYmd: Integer): Boolean;
+begin
+  Result := (AEndOfSupportYmd <> 0) and (ATodayYmd > AEndOfSupportYmd);
 end;
 
 function WindowsVersion(const AVersion: TWindowsVersion): string;
@@ -134,7 +277,7 @@ function WindowsVersionStr: string;
 var
   LVersion: TWindowsVersion;
 begin
-  GetWindowsVersionEx(LVersion);
+  GetActiveWindowsVersion(LVersion);
 
   Result := WindowsVersion(LVersion);
 end;
@@ -144,12 +287,12 @@ begin
   Result := AVersionPart = -1;
 end;
 
-function SkipMinor(const AComparedVersion: TWindowsVersion): Boolean;
+function SkipMinor(const AComparedVersion: TWindowsVersionInfo): Boolean;
 begin
   Result := SkipVersion(AComparedVersion.Minor);
 end;
 
-function SkipBuild(const AComparedVersion: TWindowsVersion): Boolean;
+function SkipBuild(const AComparedVersion: TWindowsVersionInfo): Boolean;
 begin
   Result := SkipVersion(AComparedVersion.Build);
 end;
@@ -159,7 +302,9 @@ begin
   Result := False;
   ACompareResult := False;
 
-  if not SkipVersion(APartConmpare) then
+  // A part is skipped when EITHER side marks it -1, so partial versions work
+  // on both operands (e.g. CompareVersionsStr('10.1', '10.5.0')).
+  if not (SkipVersion(APartConmpare) or SkipVersion(APartConmpareTo)) then
   begin
     if ACompareMethod = vcmOlder then
     begin
@@ -228,7 +373,7 @@ end;
 //        if part of version is negative, then it is given.
 //        Now that zero is used, it'll cause problems or
 //        potentiel headache, also code is way too complec because of this.
-function CompareVersions(const AComparedVersion, AVersionComparedTo: TWindowsVersion; const ACompareMethod: TVersionCompareMethod): Boolean;
+function CompareVersions(const AComparedVersion, AVersionComparedTo: TWindowsVersionInfo; const ACompareMethod: TVersionCompareMethod): Boolean;
 var
   LComparePartResult: Boolean;
 begin
@@ -248,7 +393,8 @@ begin
     Exit;
   end;
 
-  if SkipMinor(AComparedVersion) and not SkipBuild(AComparedVersion) then
+  if (SkipMinor(AComparedVersion) and not SkipBuild(AComparedVersion))
+    or (SkipMinor(AVersionComparedTo) and not SkipBuild(AVersionComparedTo)) then
   begin
     RaiseException('Build part not skipped but minor part is, skipping must strat from the the rightmost version part');
     // TODO: maybe compare result to parameter and result would be error/NoError
@@ -284,18 +430,93 @@ begin
   end;
 end;
 
+// Parses a dotted version string ('10', '10.1', '10.0.19045') into the compare
+// record. Missing trailing parts become -1 (= "skip" in comparisons). Any part
+// beyond Build (e.g. the revision in '10.0.19045.1234') is ignored. A missing
+// or non-numeric part is treated as -1.
+function ParseVersionString(const AVersionStr: string): TWindowsVersionInfo;
+var
+  LRemaining: string;
+  LPart: string;
+  LDotPos: Integer;
+  LIndex: Integer;
+begin
+  Result.Major := -1;
+  Result.Minor := -1;
+  Result.Build := -1;
+  Result.ServicePackMajor := 0;
+  Result.ServicePackMinor := 0;
+  Result.NTPlatform := True;
+  Result.ProductType := VER_NT_WORKSTATION;
+  Result.SuiteMask := 0;
+
+  LRemaining := AVersionStr;
+  LIndex := 0;
+
+  while (LRemaining <> '') and (LIndex <= 2) do
+  begin
+    LDotPos := Pos('.', LRemaining);
+
+    if LDotPos > 0 then
+    begin
+      LPart := Copy(LRemaining, 1, LDotPos - 1);
+      LRemaining := Copy(LRemaining, LDotPos + 1, Length(LRemaining));
+    end
+    else
+    begin
+      LPart := LRemaining;
+      LRemaining := '';
+    end;
+
+    if LPart <> '' then
+    begin
+      if LIndex = 0 then
+        Result.Major := StrToIntDef(LPart, -1)
+      else if LIndex = 1 then
+        Result.Minor := StrToIntDef(LPart, -1)
+      else
+        Result.Build := StrToIntDef(LPart, -1);
+    end;
+
+    LIndex := LIndex + 1;
+  end;
+end;
+
+// Compares two version strings: "is AVersion {method} AVersionComparedTo".
+// Either string may be whole or partial (see ParseVersionString).
+function CompareVersionsStr(const AVersion, AVersionComparedTo: string; const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result := CompareVersions(ParseVersionString(AVersion), ParseVersionString(AVersionComparedTo), ACompareMethod);
+end;
+
+// Converts Inno Setup's (unsigned) TWindowsVersion into the signed-Integer
+// comparison record, so partial comparison with -1 "skip" markers works.
+function WindowsVersionToInfo(const AVersion: TWindowsVersion): TWindowsVersionInfo;
+begin
+  Result.Major := AVersion.Major;
+  Result.Minor := AVersion.Minor;
+  Result.Build := AVersion.Build;
+  Result.ServicePackMajor := AVersion.ServicePackMajor;
+  Result.ServicePackMinor := AVersion.ServicePackMinor;
+  Result.NTPlatform := AVersion.NTPlatform;
+  Result.ProductType := AVersion.ProductType;
+  Result.SuiteMask := AVersion.SuiteMask;
+end;
+
 function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TVersionCompareMethod): Boolean;
 var
   LOSVersion: TWindowsVersion;
-  LComparedVersion: TWindowsVersion;
+  LOSVersionInfo: TWindowsVersionInfo;
+  LComparedVersion: TWindowsVersionInfo;
 begin
-  GetWindowsVersionEx(LOSVersion);
+  GetActiveWindowsVersion(LOSVersion);
+  LOSVersionInfo := WindowsVersionToInfo(LOSVersion);
 
   LComparedVersion.Major := AMajor;
   LComparedVersion.Minor := AMinor;
   LComparedVersion.Build := ABuild;
 
-  Result := CompareVersions(LOSVersion, LComparedVersion, ACompareMethod);
+  Result := CompareVersions(LOSVersionInfo, LComparedVersion, ACompareMethod);
 end;
 
 // 6.1.7600	Windows 7 or Windows Server 2008 R2
@@ -481,8 +702,8 @@ begin
   Result := IsWindowsVersion(10, 0, 26100, ACompareMethod);
 end;
 
-// 10.0.26100	Windows 11 Version 25H2
-//   - Release Date: TBA
+// 10.0.26200	Windows 11 Version 25H2
+//   - Release Date: 30.09.2025
 //   - End of Mainstream Support: TBA
 //   - Enteprivce support: TBA
 //   - LTCS Enterprise: TBA
@@ -491,4 +712,12 @@ begin
   Result := IsWindowsVersion(10, 0, 26200, ACompareMethod);
 end;
 
-// TODO: Windwos 11 26H2
+// 10.0.26300	Windows 11 Version 26H2
+//   - Release Date: 30.09.2026
+//   - End of Mainstream Support: TBA
+//   - Enteprivce support: TBA
+//   - LTCS Enterprise: TBA
+function IsWin11_26H2(const ACompareMethod: TVersionCompareMethod): Boolean;
+begin
+  Result := IsWindowsVersion(10, 0, 26300, ACompareMethod);
+end;

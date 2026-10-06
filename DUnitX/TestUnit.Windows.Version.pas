@@ -24,6 +24,17 @@ type
   end;
 
   function IsWindowsVersion(const AMajor, AMinor, ABuild: Integer; const ACompareMethod: TVersionCompareMethod): Boolean;
+  function CompareVersionsStr(const AVersion, AVersionComparedTo: string; const ACompareMethod: TVersionCompareMethod): Boolean;
+  function WindowsVersionStr: string;
+  function WindowsNameForBuild(const ABuild: Integer; const AServer: Boolean): string;
+  function IsWindowsHomeEdition: Boolean;
+  function GetWindowsEndOfSupport(const ABuild: Integer; const AExtended: Boolean): Integer;
+  function IsSupportEnded(const AEndOfSupportYmd, ATodayYmd: Integer): Boolean;
+
+  // Fake OS controls (defined in the shared common code) exposed for tests.
+  procedure SetFakeWindowsVersion(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean);
+  procedure SetFakeWindowsSuiteMask(const ASuiteMask: Integer);
+  procedure ClearFakeWindowsVersion;
 
   procedure SetOSVersion(const AMajor, AMinor, ABuild: Integer; const AProductType: Integer = 1);
   procedure SetOsVersionToWin7;
@@ -34,6 +45,7 @@ const
   VER_NT_WORKSTATION = 1;
   VER_NT_DOMAIN_CONTROLLER = 2;
   VER_NT_SERVER = 3;
+  VER_SUITE_PERSONAL = $0200;
 
 implementation
 

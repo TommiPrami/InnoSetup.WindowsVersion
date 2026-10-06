@@ -15,6 +15,12 @@ AppVersion={#MyAppVersion}
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 CreateAppDir=no
+; This installer ships no files and only runs the [Code] self-tests. With
+; CreateAppDir=no the {app} dir resolves to {win}, so leaving the uninstaller
+; enabled makes Setup try to write its uninstall data into the Windows
+; directory - which fails with "CreateFile failed; code 5. Access is denied"
+; under PrivilegesRequired=lowest. Disabling the uninstaller avoids that.
+Uninstallable=no
 ; Remove the following line to run in administrative install mode (install for all users).
 PrivilegesRequired=lowest
 OutputDir=WindowsVersionTestInstaller
@@ -36,212 +42,251 @@ end;
 procedure CheckResult(const AResult, AExpectedResult: Boolean; const AMessage: string);
 begin
   if AResult <> AExpectedResult then
-    RaiseException('Test failed: "' + AMessage + '"');
+    RaiseException('Test failed: "' + AMessage + '" (got ' + IfThenStr(AResult, 'True', 'False')
+      + ', expected ' + IfThenStr(AExpectedResult, 'True', 'False') + ')');
+end;
+
+var
+  GOSMajor: Integer;
+  GOSMinor: Integer;
+  GOSBuild: Integer;
+  GIsServer: Boolean;
+
+function CompareInt(const A, B: Integer): Integer;
+begin
+  if A < B then
+    Result := -1
+  else if A > B then
+    Result := 1
+  else
+    Result := 0;
+end;
+
+// Independent reference comparison: "is the OS {method} than the target version".
+// Deliberately a separate, simpler implementation than the library so the
+// checks actually cross-validate the library instead of restating it.
+function ExpectedResult(const ATargetMajor, ATargetMinor, ATargetBuild: Integer;
+  const AMethod: TVersionCompareMethod): Boolean;
+var
+  LCmp: Integer;
+begin
+  LCmp := CompareInt(GOSMajor, ATargetMajor);
+  
+  if LCmp = 0 then
+    LCmp := CompareInt(GOSMinor, ATargetMinor);
+    
+  if LCmp = 0 then
+    LCmp := CompareInt(GOSBuild, ATargetBuild);
+
+  if AMethod = vcmOlder then
+    Result := LCmp < 0
+  else if AMethod = vcmOlderOrEqual then
+    Result := LCmp <= 0
+  else if AMethod = vcmEqual then
+    Result := LCmp = 0
+  else if AMethod = vcmNewerOrEqual then
+    Result := LCmp >= 0
+  else
+    Result := LCmp > 0;
+end;
+
+procedure CheckOneMethod(const AName: string; const ATargetMajor, ATargetMinor, ATargetBuild: Integer;
+  const AServerSku: Boolean; const AMethod: TVersionCompareMethod; const AActual: Boolean);
+var
+  LExpected: Boolean;
+begin
+  LExpected := ExpectedResult(ATargetMajor, ATargetMinor, ATargetBuild, AMethod);
+
+  // Server helpers additionally require the OS to be a Server SKU.
+  if AServerSku then
+    LExpected := LExpected and GIsServer;
+
+  CheckResult(AActual, LExpected, AName);
+end;
+
+// Verifies all five compare methods of one helper against the detected OS.
+// The caller passes the helper's own build number and its five results.
+procedure VerifyHelper(const AName: string; const ATargetMajor, ATargetMinor, ATargetBuild: Integer;
+  const AServerSku: Boolean; const AOlder, AOlderOrEqual, AEqual, ANewerOrEqual, ANewer: Boolean);
+begin
+  CheckOneMethod(AName + '(vcmOlder)', ATargetMajor, ATargetMinor, ATargetBuild, AServerSku, vcmOlder, AOlder);
+  CheckOneMethod(AName + '(vcmOlderOrEqual)', ATargetMajor, ATargetMinor, ATargetBuild, AServerSku, vcmOlderOrEqual, AOlderOrEqual);
+  CheckOneMethod(AName + '(vcmEqual)', ATargetMajor, ATargetMinor, ATargetBuild, AServerSku, vcmEqual, AEqual);
+  CheckOneMethod(AName + '(vcmNewerOrEqual)', ATargetMajor, ATargetMinor, ATargetBuild, AServerSku, vcmNewerOrEqual, ANewerOrEqual);
+  CheckOneMethod(AName + '(vcmNewer)', ATargetMajor, ATargetMinor, ATargetBuild, AServerSku, vcmNewer, ANewer);
+end;
+
+procedure CheckStr(const AActual, AExpected, AName: string);
+begin
+  if AActual <> AExpected then
+    RaiseException('Test failed: "' + AName + '" (got "' + AActual + '", expected "' + AExpected + '")');
+end;
+
+// Switches the library onto a FAKE OS version and keeps the installer's own
+// snapshot in sync, so VerifyHelper's expectations are computed against the
+// same fake. Lets the deterministic checks below run identically on any box.
+procedure UseFakeOS(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean);
+begin
+  SetFakeWindowsVersion(AMajor, AMinor, ABuild, AServer);
+  GOSMajor := AMajor;
+  GOSMinor := AMinor;
+  GOSBuild := ABuild;
+  GIsServer := AServer;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  LOSVersion: TWindowsVersion;
 begin
   case CurStep of
     ssInstall:
       begin
         ShowWindowsVersion;
-        // vcmOlder, vcmOlderOrEqual, vcmEqual, vcmNewerOrEqual, vcmNewer
-        
-        { Your mileage on Windows Version test might vary vastly 
-          depending on your windows version you are testing on.
-          
-          This kind of expects that we are runninbg latest desktop version }
-        
-        // IsWin7
-        CheckResult(IsWin7(vcmOlder), False, 'IsWin7(vcmOlder)');
-        CheckResult(IsWin7(vcmOlderOrEqual), False, 'IsWin7(vcmOlderOrEqual)');
-        CheckResult(IsWin7(vcmEqual), False, 'sWin7(vcmEqual)');
-        CheckResult(IsWin7(vcmNewerOrEqual), True, 'IsWin7(vcmNewerOrEqual)');
-        CheckResult(IsWin7(vcmNewer), True, 'IsWin7(vcmNewer)');
-        
-        // IsWinServer2008r2
-        CheckResult(IsWinServer2008r2(vcmOlder), False, 'IsWinServer2008r2(vcmOlder)');
-        CheckResult(IsWinServer2008r2(vcmOlderOrEqual), False, 'IsWinServer2008r2(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2008r2(vcmEqual), False, 'IsWinServer2008r2(vcmEqual)');
-        CheckResult(IsWinServer2008r2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2008r2(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2008r2(vcmNewer), IsWindowsServer, 'IsWinServer2008r2(vcmNewer)');
 
-        // 
-        CheckResult(IsWin8(vcmOlder), False, 'IsWin8(vcmOlder)');
-        CheckResult(IsWin8(vcmOlderOrEqual), False, 'IsWin8(vcmOlderOrEqual)');
-        CheckResult(IsWin8(vcmEqual), False, ' (vcmEqual)');
-        CheckResult(IsWin8(vcmNewerOrEqual), True, 'IsWin8(vcmNewerOrEqual)');
-        CheckResult(IsWin8(vcmNewer), True, 'IsWin8(vcmNewer)');
+        // Snapshot the running OS once; every helper is verified RELATIVE to it,
+        // so this installer keeps passing as new Windows builds ship (instead of
+        // the old hard-coded expectations that assumed one specific dev machine).
+        GetWindowsVersionEx(LOSVersion);
+        GOSMajor := LOSVersion.Major;
+        GOSMinor := LOSVersion.Minor;
+        GOSBuild := LOSVersion.Build;
+        GIsServer := IsWindowsServer;
 
-        // 
-        CheckResult(IsWinServer2012(vcmOlder), False, 'IsWinServer2012(vcmOlder)');
-        CheckResult(IsWinServer2012(vcmOlderOrEqual), False, 'IsWinServer2012(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2012(vcmEqual), False, 'IsWinServer2012(vcmEqual)');
-        CheckResult(IsWinServer2012(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2012(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2012(vcmNewer), IsWindowsServer, 'IsWinServer2012(vcmNewer)');
+        // Desktop releases
+        VerifyHelper('IsWin7', 6, 1, 7601, False,
+          IsWin7(vcmOlder), IsWin7(vcmOlderOrEqual), IsWin7(vcmEqual), IsWin7(vcmNewerOrEqual), IsWin7(vcmNewer));
+        VerifyHelper('IsWin8', 6, 2, 9200, False,
+          IsWin8(vcmOlder), IsWin8(vcmOlderOrEqual), IsWin8(vcmEqual), IsWin8(vcmNewerOrEqual), IsWin8(vcmNewer));
+        VerifyHelper('IsWin81', 6, 3, 9600, False,
+          IsWin81(vcmOlder), IsWin81(vcmOlderOrEqual), IsWin81(vcmEqual), IsWin81(vcmNewerOrEqual), IsWin81(vcmNewer));
+        VerifyHelper('IsWin10_1067', 10, 0, 14393, False,
+          IsWin10_1067(vcmOlder), IsWin10_1067(vcmOlderOrEqual), IsWin10_1067(vcmEqual), IsWin10_1067(vcmNewerOrEqual), IsWin10_1067(vcmNewer));
+        VerifyHelper('IsWin10_1809', 10, 0, 17763, False,
+          IsWin10_1809(vcmOlder), IsWin10_1809(vcmOlderOrEqual), IsWin10_1809(vcmEqual), IsWin10_1809(vcmNewerOrEqual), IsWin10_1809(vcmNewer));
+        VerifyHelper('IsWin10_1903', 10, 0, 18362, False,
+          IsWin10_1903(vcmOlder), IsWin10_1903(vcmOlderOrEqual), IsWin10_1903(vcmEqual), IsWin10_1903(vcmNewerOrEqual), IsWin10_1903(vcmNewer));
+        VerifyHelper('IsWin10_2004', 10, 0, 19041, False,
+          IsWin10_2004(vcmOlder), IsWin10_2004(vcmOlderOrEqual), IsWin10_2004(vcmEqual), IsWin10_2004(vcmNewerOrEqual), IsWin10_2004(vcmNewer));
+        VerifyHelper('IsWin10_21H1', 10, 0, 19043, False,
+          IsWin10_21H1(vcmOlder), IsWin10_21H1(vcmOlderOrEqual), IsWin10_21H1(vcmEqual), IsWin10_21H1(vcmNewerOrEqual), IsWin10_21H1(vcmNewer));
+        VerifyHelper('IsWin10_21H2', 10, 0, 19044, False,
+          IsWin10_21H2(vcmOlder), IsWin10_21H2(vcmOlderOrEqual), IsWin10_21H2(vcmEqual), IsWin10_21H2(vcmNewerOrEqual), IsWin10_21H2(vcmNewer));
+        VerifyHelper('IsWin10_22H2', 10, 0, 19045, False,
+          IsWin10_22H2(vcmOlder), IsWin10_22H2(vcmOlderOrEqual), IsWin10_22H2(vcmEqual), IsWin10_22H2(vcmNewerOrEqual), IsWin10_22H2(vcmNewer));
+        VerifyHelper('IsWin11_21H1', 10, 0, 22000, False,
+          IsWin11_21H1(vcmOlder), IsWin11_21H1(vcmOlderOrEqual), IsWin11_21H1(vcmEqual), IsWin11_21H1(vcmNewerOrEqual), IsWin11_21H1(vcmNewer));
+        VerifyHelper('IsWin11_22H2', 10, 0, 22621, False,
+          IsWin11_22H2(vcmOlder), IsWin11_22H2(vcmOlderOrEqual), IsWin11_22H2(vcmEqual), IsWin11_22H2(vcmNewerOrEqual), IsWin11_22H2(vcmNewer));
+        VerifyHelper('IsWin11_23H2', 10, 0, 22631, False,
+          IsWin11_23H2(vcmOlder), IsWin11_23H2(vcmOlderOrEqual), IsWin11_23H2(vcmEqual), IsWin11_23H2(vcmNewerOrEqual), IsWin11_23H2(vcmNewer));
+        VerifyHelper('IsWin11_24H2', 10, 0, 26100, False,
+          IsWin11_24H2(vcmOlder), IsWin11_24H2(vcmOlderOrEqual), IsWin11_24H2(vcmEqual), IsWin11_24H2(vcmNewerOrEqual), IsWin11_24H2(vcmNewer));
+        VerifyHelper('IsWin11_25H2', 10, 0, 26200, False,
+          IsWin11_25H2(vcmOlder), IsWin11_25H2(vcmOlderOrEqual), IsWin11_25H2(vcmEqual), IsWin11_25H2(vcmNewerOrEqual), IsWin11_25H2(vcmNewer));
+        VerifyHelper('IsWin11_26H2', 10, 0, 26300, False,
+          IsWin11_26H2(vcmOlder), IsWin11_26H2(vcmOlderOrEqual), IsWin11_26H2(vcmEqual), IsWin11_26H2(vcmNewerOrEqual), IsWin11_26H2(vcmNewer));
 
-        // 
-        CheckResult(IsWin81(vcmOlder), False, 'IsWin81(vcmOlder)');
-        CheckResult(IsWin81(vcmOlderOrEqual), False, 'IsWin81(vcmOlderOrEqual)');
-        CheckResult(IsWin81(vcmEqual), False, 'IsWin81(vcmEqual)');
-        CheckResult(IsWin81(vcmNewerOrEqual), True, 'IsWin81(vcmNewerOrEqual)');
-        CheckResult(IsWin81(vcmNewer), True, 'IsWin81(vcmNewer)');
+        // Server releases (only meaningful on a Server SKU; verified as such)
+        VerifyHelper('IsWinServer2008r2', 6, 1, 7601, True,
+          IsWinServer2008r2(vcmOlder), IsWinServer2008r2(vcmOlderOrEqual), IsWinServer2008r2(vcmEqual), IsWinServer2008r2(vcmNewerOrEqual), IsWinServer2008r2(vcmNewer));
+        VerifyHelper('IsWinServer2012', 6, 2, 9200, True,
+          IsWinServer2012(vcmOlder), IsWinServer2012(vcmOlderOrEqual), IsWinServer2012(vcmEqual), IsWinServer2012(vcmNewerOrEqual), IsWinServer2012(vcmNewer));
+        VerifyHelper('IsWinServer2012r2', 6, 3, 9600, True,
+          IsWinServer2012r2(vcmOlder), IsWinServer2012r2(vcmOlderOrEqual), IsWinServer2012r2(vcmEqual), IsWinServer2012r2(vcmNewerOrEqual), IsWinServer2012r2(vcmNewer));
+        VerifyHelper('IsWinServer2016', 10, 0, 14393, True,
+          IsWinServer2016(vcmOlder), IsWinServer2016(vcmOlderOrEqual), IsWinServer2016(vcmEqual), IsWinServer2016(vcmNewerOrEqual), IsWinServer2016(vcmNewer));
+        VerifyHelper('IsWinServer2016_1079', 10, 0, 16299, True,
+          IsWinServer2016_1079(vcmOlder), IsWinServer2016_1079(vcmOlderOrEqual), IsWinServer2016_1079(vcmEqual), IsWinServer2016_1079(vcmNewerOrEqual), IsWinServer2016_1079(vcmNewer));
+        VerifyHelper('IsWinServer2016_1803', 10, 0, 17134, True,
+          IsWinServer2016_1803(vcmOlder), IsWinServer2016_1803(vcmOlderOrEqual), IsWinServer2016_1803(vcmEqual), IsWinServer2016_1803(vcmNewerOrEqual), IsWinServer2016_1803(vcmNewer));
+        VerifyHelper('IsWinServer2019', 10, 0, 17763, True,
+          IsWinServer2019(vcmOlder), IsWinServer2019(vcmOlderOrEqual), IsWinServer2019(vcmEqual), IsWinServer2019(vcmNewerOrEqual), IsWinServer2019(vcmNewer));
+        VerifyHelper('IsWinServer2019_1903', 10, 0, 18362, True,
+          IsWinServer2019_1903(vcmOlder), IsWinServer2019_1903(vcmOlderOrEqual), IsWinServer2019_1903(vcmEqual), IsWinServer2019_1903(vcmNewerOrEqual), IsWinServer2019_1903(vcmNewer));
+        VerifyHelper('IsWinServer2022', 10, 0, 20348, True,
+          IsWinServer2022(vcmOlder), IsWinServer2022(vcmOlderOrEqual), IsWinServer2022(vcmEqual), IsWinServer2022(vcmNewerOrEqual), IsWinServer2022(vcmNewer));
+        VerifyHelper('IsWinServer_23H2', 10, 0, 25398, True,
+          IsWinServer_23H2(vcmOlder), IsWinServer_23H2(vcmOlderOrEqual), IsWinServer_23H2(vcmEqual), IsWinServer_23H2(vcmNewerOrEqual), IsWinServer_23H2(vcmNewer));
+        VerifyHelper('IsWinServer_25H2', 10, 0, 26052, True,
+          IsWinServer_25H2(vcmOlder), IsWinServer_25H2(vcmOlderOrEqual), IsWinServer_25H2(vcmEqual), IsWinServer_25H2(vcmNewerOrEqual), IsWinServer_25H2(vcmNewer));
 
-        // 
-        CheckResult(IsWinServer2012r2(vcmOlder), False, 'IsWinServer2012r2(vcmOlder)');
-        CheckResult(IsWinServer2012r2(vcmOlderOrEqual), False, 'IsWinServer2012r2(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2012r2(vcmEqual), False, 'IsWinServer2012r2(vcmEqual)');
-        CheckResult(IsWinServer2012r2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2012r2(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2012r2(vcmNewer), IsWindowsServer, 'IsWinServer2012r2(vcmNewer)');
+        // ----- Deterministic checks against a FAKE OS version -----
+        // These do not depend on which Windows the installer runs on, so they
+        // verify the detection table and comparisons the same way everywhere
+        // (e.g. the 26H2 name below is checked even off a 26H2 machine).
 
-        // 
-        CheckResult(IsWin10_1067(vcmOlder), False, 'IsWin10_1067(vcmOlder)');
-        CheckResult(IsWin10_1067(vcmOlderOrEqual), False, 'IsWin10_1067(vcmOlderOrEqual)');
-        CheckResult(IsWin10_1067(vcmEqual), False, 'IsWin10_1067(vcmEqual)');
-        CheckResult(IsWin10_1067(vcmNewerOrEqual), True, 'IsWin10_1067(vcmNewerOrEqual)');
-        CheckResult(IsWin10_1067(vcmNewer), True, 'IsWin10_1067(vcmNewer)');
+        // Fake: Windows 10 22H2 (10.0.19045)
+        UseFakeOS(10, 0, 19045, False);
+        CheckStr(WindowsVersionStr, 'Windows 10 22H2', 'Fake name 10.0.19045');
+        VerifyHelper('[fake 22H2] IsWin10_22H2', 10, 0, 19045, False,
+          IsWin10_22H2(vcmOlder), IsWin10_22H2(vcmOlderOrEqual), IsWin10_22H2(vcmEqual), IsWin10_22H2(vcmNewerOrEqual), IsWin10_22H2(vcmNewer));
+        VerifyHelper('[fake 22H2] IsWin10_21H2', 10, 0, 19044, False,
+          IsWin10_21H2(vcmOlder), IsWin10_21H2(vcmOlderOrEqual), IsWin10_21H2(vcmEqual), IsWin10_21H2(vcmNewerOrEqual), IsWin10_21H2(vcmNewer));
+        VerifyHelper('[fake 22H2] IsWin11_24H2', 10, 0, 26100, False,
+          IsWin11_24H2(vcmOlder), IsWin11_24H2(vcmOlderOrEqual), IsWin11_24H2(vcmEqual), IsWin11_24H2(vcmNewerOrEqual), IsWin11_24H2(vcmNewer));
 
-        // 
-        CheckResult(IsWinServer2016(vcmOlder), False, 'IsWinServer2016(vcmOlder)');
-        CheckResult(IsWinServer2016(vcmOlderOrEqual), False, 'IsWinServer2016(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2016(vcmEqual), False, 'IsWinServer2016(vcmEqual)');
-        CheckResult(IsWinServer2016(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2016(vcmNewer), IsWindowsServer, 'IsWinServer2016(vcmNewer)');
+        // Fake: Windows 11 24H2 (10.0.26100)
+        UseFakeOS(10, 0, 26100, False);
+        CheckStr(WindowsVersionStr, 'Windows 11 24H2', 'Fake name 10.0.26100');
+        VerifyHelper('[fake 24H2] IsWin11_24H2', 10, 0, 26100, False,
+          IsWin11_24H2(vcmOlder), IsWin11_24H2(vcmOlderOrEqual), IsWin11_24H2(vcmEqual), IsWin11_24H2(vcmNewerOrEqual), IsWin11_24H2(vcmNewer));
+        VerifyHelper('[fake 24H2] IsWin11_26H2', 10, 0, 26300, False,
+          IsWin11_26H2(vcmOlder), IsWin11_26H2(vcmOlderOrEqual), IsWin11_26H2(vcmEqual), IsWin11_26H2(vcmNewerOrEqual), IsWin11_26H2(vcmNewer));
+        VerifyHelper('[fake 24H2] IsWin10_22H2', 10, 0, 19045, False,
+          IsWin10_22H2(vcmOlder), IsWin10_22H2(vcmOlderOrEqual), IsWin10_22H2(vcmEqual), IsWin10_22H2(vcmNewerOrEqual), IsWin10_22H2(vcmNewer));
 
-        // 
-        CheckResult(IsWin10_1809(vcmOlder), False, 'IsWin10_1809(vcmOlder)');
-        CheckResult(IsWin10_1809(vcmOlderOrEqual), False, 'IsWin10_1809(vcmOlderOrEqual)');
-        CheckResult(IsWin10_1809(vcmEqual), False, 'IsWin10_1809(vcmEqual)');
-        CheckResult(IsWin10_1809(vcmNewerOrEqual), True, 'IsWin10_1809(vcmNewerOrEqual)');
-        CheckResult(IsWin10_1809(vcmNewer), True, 'IsWin10_1809(vcmNewer)');
+        // Fake: Windows 11 26H2 (10.0.26300) - detection verified off a 26H2 box too
+        UseFakeOS(10, 0, 26300, False);
+        CheckStr(WindowsVersionStr, 'Windows 11 26H2', 'Fake name 10.0.26300');
+        VerifyHelper('[fake 26H2] IsWin11_26H2', 10, 0, 26300, False,
+          IsWin11_26H2(vcmOlder), IsWin11_26H2(vcmOlderOrEqual), IsWin11_26H2(vcmEqual), IsWin11_26H2(vcmNewerOrEqual), IsWin11_26H2(vcmNewer));
 
-        // 
-        CheckResult(IsWinServer2016_1079(vcmOlder), False, 'IsWinServer2016_1079(vcmOlder)');
-        CheckResult(IsWinServer2016_1079(vcmOlderOrEqual), False, 'IsWinServer2016_1079(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2016_1079(vcmEqual), False, 'IsWinServer2016_1079(vcmEqual)');
-        CheckResult(IsWinServer2016_1079(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016_1079(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2016_1079(vcmNewer), IsWindowsServer, 'IsWinServer2016_1079(vcmNewer)');
+        // Fake: Windows 7 SP1 (6.1.7601)
+        UseFakeOS(6, 1, 7601, False);
+        CheckStr(WindowsVersionStr, 'Windows 7 SP1', 'Fake name 6.1.7601');
+        VerifyHelper('[fake Win7] IsWin7', 6, 1, 7601, False,
+          IsWin7(vcmOlder), IsWin7(vcmOlderOrEqual), IsWin7(vcmEqual), IsWin7(vcmNewerOrEqual), IsWin7(vcmNewer));
+        VerifyHelper('[fake Win7] IsWin10_22H2', 10, 0, 19045, False,
+          IsWin10_22H2(vcmOlder), IsWin10_22H2(vcmOlderOrEqual), IsWin10_22H2(vcmEqual), IsWin10_22H2(vcmNewerOrEqual), IsWin10_22H2(vcmNewer));
 
-        // 
-        CheckResult(IsWinServer2016_1803(vcmOlder), False, 'IsWinServer2016_1803(vcmOlder)');
-        CheckResult(IsWinServer2016_1803(vcmOlderOrEqual), False, 'IsWinServer2016_1803(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2016_1803(vcmEqual), False, 'IsWinServer2016_1803(vcmEqual)');
-        CheckResult(IsWinServer2016_1803(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2016_1803(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2016_1803(vcmNewer), IsWindowsServer, 'IsWinServer2016_1803(vcmNewer)');
+        // Fake: Windows Server 2022 (10.0.20348, Server SKU)
+        UseFakeOS(10, 0, 20348, True);
+        CheckStr(WindowsVersionStr, 'Windows Server 2022', 'Fake name 10.0.20348 (server)');
+        VerifyHelper('[fake Srv2022] IsWinServer2022', 10, 0, 20348, True,
+          IsWinServer2022(vcmOlder), IsWinServer2022(vcmOlderOrEqual), IsWinServer2022(vcmEqual), IsWinServer2022(vcmNewerOrEqual), IsWinServer2022(vcmNewer));
+        VerifyHelper('[fake Srv2022] IsWin11_24H2', 10, 0, 26100, False,
+          IsWin11_24H2(vcmOlder), IsWin11_24H2(vcmOlderOrEqual), IsWin11_24H2(vcmEqual), IsWin11_24H2(vcmNewerOrEqual), IsWin11_24H2(vcmNewer));
 
-        // 
-        CheckResult(IsWinServer2019(vcmOlder), False, 'IsWinServer2019(vcmOlder)');
-        CheckResult(IsWinServer2019(vcmOlderOrEqual), False, 'IsWinServer2019(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2019(vcmEqual), False, 'IsWinServer2019(vcmEqual)');
-        CheckResult(IsWinServer2019(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2019(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2019(vcmNewer), IsWindowsServer, 'IsWinServer2019(vcmNewer)');
+        // String-based comparisons (independent of the OS; partial/whole strings).
+        CheckResult(CompareVersionsStr('10.0.19045', '10.0.19045', vcmEqual), True, 'Str 19045 = 19045');
+        CheckResult(CompareVersionsStr('10.0.19045', '10.0', vcmEqual), True, 'Str 19045 = 10.0 (build skipped)');
+        CheckResult(CompareVersionsStr('10.0', '10.0.19045', vcmEqual), True, 'Str 10.0 = 19045 (build skipped, first operand)');
+        CheckResult(CompareVersionsStr('10.0', '10.0.19045', vcmOlder), False, 'Str 10.0 not older than 19045 (build skipped)');
+        CheckResult(CompareVersionsStr('10.1.0', '10.5.0.12332', vcmOlder), True, 'Str 10.1.0 older than 10.5.0.12332');
+        CheckResult(CompareVersionsStr('10.1.0', '10.5.0.12332', vcmNewer), False, 'Str 10.1.0 not newer than 10.5.0.12332');
+        CheckResult(CompareVersionsStr('11', '10', vcmNewer), True, 'Str 11 newer than 10');
+        CheckResult(CompareVersionsStr('10.5.0.12332', '10.5.0', vcmEqual), True, 'Str revision part ignored');
 
-        // 
-        CheckResult(IsWinServer2019_1903(vcmOlder), False, 'IsWinServer2019_1903(vcmOlder)');
-        CheckResult(IsWinServer2019_1903(vcmOlderOrEqual), False, 'IsWinServer2019_1903(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2019_1903(vcmEqual), False, 'IsWinServer2019_1903(vcmEqual)');
-        CheckResult(IsWinServer2019_1903(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2019_1903(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2019_1903(vcmNewer), IsWindowsServer, 'IsWinServer2019_1903(vcmNewer)');
+        // Edition detection (fake-driven) - VER_SUITE_PERSONAL = Home.
+        UseFakeOS(10, 0, 19045, False);
+        SetFakeWindowsSuiteMask(VER_SUITE_PERSONAL);
+        CheckResult(IsWindowsHomeEdition, True, 'Fake Home edition (VER_SUITE_PERSONAL set)');
+        SetFakeWindowsSuiteMask(0);
+        CheckResult(IsWindowsHomeEdition, False, 'Fake non-Home edition (no suite bits)');
 
-        // 
-        CheckResult(IsWin10_1903(vcmOlder), False, 'IsWin10_1903(vcmOlder)');
-        CheckResult(IsWin10_1903(vcmOlderOrEqual), False, 'IsWin10_1903(vcmOlderOrEqual)');
-        CheckResult(IsWin10_1903(vcmEqual), False, 'IsWin10_1903(vcmEqual)');
-        CheckResult(IsWin10_1903(vcmNewerOrEqual), True, 'IsWin10_1903(vcmNewerOrEqual)');
-        CheckResult(IsWin10_1903(vcmNewer), True, 'IsWin10_1903(vcmNewer)');
+        // End-of-support date lookup + check (fake-driven, OS-independent).
+        CheckResult(IsSupportEnded(GetWindowsEndOfSupport(19045, False), 20251231), True, 'Win10 22H2 support ended by 2025-12-31');
+        CheckResult(IsSupportEnded(GetWindowsEndOfSupport(19045, False), 20250101), False, 'Win10 22H2 still supported on 2025-01-01');
+        CheckResult(IsSupportEnded(GetWindowsEndOfSupport(26300, False), 20991231), False, 'Win11 26H2 EOS unknown -> treated as supported');
+        CheckResult(IsSupportEnded(GetWindowsEndOfSupport(26100, True), 20270101), False, 'Win11 24H2 extended support still active 2027-01-01');
 
-        // 
-        CheckResult(IsWin10_2004(vcmOlder), False, 'IsWin10_2004(vcmOlder)');
-        CheckResult(IsWin10_2004(vcmOlderOrEqual), False, 'IsWin10_2004(vcmOlderOrEqual)');
-        CheckResult(IsWin10_2004(vcmEqual), False, 'IsWin10_2004(vcmEqual)');
-        CheckResult(IsWin10_2004(vcmNewerOrEqual), True, 'IsWin10_2004(vcmNewerOrEqual)');
-        CheckResult(IsWin10_2004(vcmNewer), True, 'IsWin10_2004(vcmNewer)');
+        // Done faking - fall back to the real OS.
+        ClearFakeWindowsVersion;
 
-        // 
-        CheckResult(IsWin10_21H1(vcmOlder), False, 'IsWin10_21H1(vcmOlder)');
-        CheckResult(IsWin10_21H1(vcmOlderOrEqual), False, 'IsWin10_21H1(vcmOlderOrEqual)');
-        CheckResult(IsWin10_21H1(vcmEqual), False, 'IsWin10_21H1(vcmEqual)');
-        CheckResult(IsWin10_21H1(vcmNewerOrEqual), True, 'IsWin10_21H1(vcmNewerOrEqual)');
-        CheckResult(IsWin10_21H1(vcmNewer), True, 'IsWin10_21H1(vcmNewer)');
-
-        // 
-        CheckResult(IsWin10_21H2(vcmOlder), False, 'IsWin10_21H2(vcmOlder)');
-        CheckResult(IsWin10_21H2(vcmOlderOrEqual), False, 'IsWin10_21H2(vcmOlderOrEqual)');
-        CheckResult(IsWin10_21H2(vcmEqual), False, 'IsWin10_21H2(vcmEqual)');
-        CheckResult(IsWin10_21H2(vcmNewerOrEqual), True, 'IsWin10_21H2(vcmNewerOrEqual)');
-        CheckResult(IsWin10_21H2(vcmNewer), True, 'IsWin10_21H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWin10_22H2(vcmOlder), False, 'IsWin10_22H2(vcmOlder)');
-        CheckResult(IsWin10_22H2(vcmOlderOrEqual), False, 'IsWin10_22H2(vcmOlderOrEqual)');
-        CheckResult(IsWin10_22H2(vcmEqual), False, 'IsWin10_22H2(vcmEqual)');
-        CheckResult(IsWin10_22H2(vcmNewerOrEqual), True, 'IsWin10_22H2(vcmNewerOrEqual)');
-        CheckResult(IsWin10_22H2(vcmNewer), True, 'IsWin10_22H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWinServer2022(vcmOlder), False, 'IsWinServer2022(vcmOlder)');
-        CheckResult(IsWinServer2022(vcmOlderOrEqual), False, 'IsWinServer2022(vcmOlderOrEqual)');
-        CheckResult(IsWinServer2022(vcmEqual), False, 'IsWinServer2022(vcmEqual)');
-        CheckResult(IsWinServer2022(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer2022(vcmNewerOrEqual)');
-        CheckResult(IsWinServer2022(vcmNewer), IsWindowsServer, 'IsWinServer2022(vcmNewer)');
-
-        // 
-        CheckResult(IsWin11_21H1(vcmOlder), False, 'IsWin11_21H1(vcmOlder)');
-        CheckResult(IsWin11_21H1(vcmOlderOrEqual), False, 'IsWin11_21H1(vcmOlderOrEqual)');
-        CheckResult(IsWin11_21H1(vcmEqual), False, 'IsWin11_21H1(vcmEqual)');
-        CheckResult(IsWin11_21H1(vcmNewerOrEqual), True, 'IsWin11_21H1(vcmNewerOrEqual)');
-        CheckResult(IsWin11_21H1(vcmNewer), True, 'IsWin11_21H1(vcmNewer)');
-
-        // 
-        CheckResult(IsWin11_22H2(vcmOlder), False, 'IsWin11_22H2(vcmOlder)');
-        CheckResult(IsWin11_22H2(vcmOlderOrEqual), False, 'IsWin11_22H2(vcmOlderOrEqual)');
-        CheckResult(IsWin11_22H2(vcmEqual), False, 'IsWin11_22H2(vcmEqual)');
-        CheckResult(IsWin11_22H2(vcmNewerOrEqual), True, 'IsWin11_22H2(vcmNewerOrEqual)');
-        CheckResult(IsWin11_22H2(vcmNewer), True, 'IsWin11_22H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWin11_23H2(vcmOlder), False, 'IsWin11_23H2(vcmOlder)');
-        CheckResult(IsWin11_23H2(vcmOlderOrEqual), False, 'IsWin11_23H2(vcmOlderOrEqual)');
-        CheckResult(IsWin11_23H2(vcmEqual), False, 'IsWin11_23H2(vcmEqual)');
-        CheckResult(IsWin11_23H2(vcmNewerOrEqual), True, 'IsWin11_23H2(vcmNewerOrEqual)');
-        CheckResult(IsWin11_23H2(vcmNewer), True, 'IsWin11_23H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWinServer_23H2(vcmOlder), False, 'IsWinServer_23H2(vcmOlder)');
-        CheckResult(IsWinServer_23H2(vcmOlderOrEqual), False, 'IsWinServer_23H2(vcmOlderOrEqual)');
-        CheckResult(IsWinServer_23H2(vcmEqual), False, 'IsWinServer_23H2(vcmEqual)');
-        CheckResult(IsWinServer_23H2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer_23H2(vcmNewerOrEqual)');
-        CheckResult(IsWinServer_23H2(vcmNewer), IsWindowsServer, 'IsWinServer_23H2(vcmNeweIsWinServer_23H2)');
-
-        // 
-        CheckResult(IsWinServer_25H2(vcmOlder), False, 'IsWinServer_25H2(vcmOlder)');
-        CheckResult(IsWinServer_25H2(vcmOlderOrEqual), False, 'IsWinServer_25H2(vcmOlderOrEqual)');
-        CheckResult(IsWinServer_25H2(vcmEqual), False, 'IsWinServer_25H2(vcmEqual)');
-        CheckResult(IsWinServer_25H2(vcmNewerOrEqual), IsWindowsServer, 'IsWinServer_25H2(vcmNewerOrEqual)');
-        CheckResult(IsWinServer_25H2(vcmNewer), IsWindowsServer, 'IsWinServer_25H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWin11_24H2(vcmOlder), False, 'IsWin11_24H2(vcmOlder)');
-        CheckResult(IsWin11_24H2(vcmOlderOrEqual), True, 'IsWin11_24H2(vcmOlderOrEqual)');
-        CheckResult(IsWin11_24H2(vcmEqual), True, 'IsWin11_24H2(vcmEqual)');
-        CheckResult(IsWin11_24H2(vcmNewerOrEqual), True, 'IsWin11_24H2(vcmNewerOrEqual)');
-        CheckResult(IsWin11_24H2(vcmNewer), False, 'IsWin11_24H2(vcmNewer)');
-
-        // 
-        CheckResult(IsWin11_25H2(vcmOlder), True, 'IsWin11_25H2(vcmOlder)');
-        CheckResult(IsWin11_25H2(vcmOlderOrEqual), True, 'IsWin11_25H2(vcmOlderOrEqual)');
-        CheckResult(IsWin11_25H2(vcmEqual), False, 'IsWin11_25H2(vcmEqual)');
-        CheckResult(IsWin11_25H2(vcmNewerOrEqual), False, 'IsWin11_25H2(vcmNewerOrEqual)');
-        CheckResult(IsWin11_25H2(vcmNewer), False, 'IsWin11_25H2(vcmNewer)');
-
-        // 
-        // CheckResult( (vcmOlder), False, ' (vcmOlder)');
-        // CheckResult( (vcmOlderOrEqual), False, ' (vcmOlderOrEqual)');
-        // CheckResult( (vcmEqual), False, ' (vcmEqual)');
-        // CheckResult( (vcmNewerOrEqual), True, ' (vcmNewerOrEqual)');
-        // CheckResult( (vcmNewer), True, ' (vcmNewer)');
-
+        MsgBox('All Windows version checks passed for: ' + WindowsVersionStr + #13#10
+          + 'Server SKU: ' + IfThenStr(IsWindowsServer, 'Yes', 'No')
+          + ', Home edition: ' + IfThenStr(IsWindowsHomeEdition, 'Yes', 'No'),
+          mbInformation, MB_OK);
       end;
   end;
 end;
-
