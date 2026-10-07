@@ -37,6 +37,19 @@ type
   function IsSupportEnded(const AEndOfSupportYmd, ATodayYmd: Integer): Boolean;
   function IsPastWithSlackDays(const ADateYmd, ATodayYmd, ASlackDays: Integer): Boolean;
   function YmdToSerial(const AYmd: Integer): Integer;
+  function DaysUntil(const ADateYmd, ATodayYmd: Integer): Integer;
+  function DurationStr(const ADays: Integer): string;
+  function DaysUntilStr(const ADateYmd, ATodayYmd: Integer): string;
+  procedure SetDurationUnitWords(const ADaySingular, ADayPlural, AMonthSingular, AMonthPlural,
+    AYearSingular, AYearPlural: string);
+  function IsWindowsSupported(const ATodayYmd, ASlackDays: Integer): Boolean;
+  function WindowsSupportUntilStr(const ATodayYmd: Integer): string;
+  function GetWindowsBuildNumber: Integer;
+  function IsWindows10: Boolean;
+  function IsWindows11: Boolean;
+  function WindowsEditionToStr(const AEdition: TWindowsEdition): string;
+  function WindowsSupportTrackToStr(const ATrack: TWindowsSupportTrack): string;
+  function IsWindowsDataStale(const ATodayYmd, AMaxAgeDays: Integer): Boolean;
 
   // Fake OS controls (defined in the shared common code) exposed for tests.
   procedure SetFakeWindowsVersion(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean);

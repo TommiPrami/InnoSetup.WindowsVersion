@@ -317,6 +317,55 @@ type
     [TestCase('Trk - Ent E end',   '4;20271101;True', ';')]
     [TestCase('Trk - Edu E ok',    '121;20270601;False', ';')]  // Education -> E track
     procedure EditionTrackSupport(const AProductType, ATodayYmd: Integer; const AExpectedEnded: Boolean);
+
+    // DurationStr: "x days" / "x months" / "x years [y months]" (English words).
+    [Test]
+    [TestCase('Dur - 0',     '0;0 days', ';')]
+    [TestCase('Dur - 1',     '1;1 day', ';')]
+    [TestCase('Dur - 29',    '29;29 days', ';')]
+    [TestCase('Dur - 30',    '30;1 month', ';')]
+    [TestCase('Dur - 90',    '90;3 months', ';')]
+    [TestCase('Dur - 364',   '364;12 months', ';')]
+    [TestCase('Dur - 365',   '365;1 year', ';')]
+    [TestCase('Dur - 400',   '400;1 year 1 month', ';')]
+    [TestCase('Dur - 800',   '800;2 years 2 months', ';')]
+    [TestCase('Dur - 2432',  '2432;6 years 8 months', ';')]
+    [TestCase('Dur - neg',   '-400;1 year 1 month', ';')]
+    procedure DurationFormat(const ADays: Integer; const AExpected: string);
+
+    // Localised unit words (singular vs plural chosen by count).
+    [Test]
+    procedure DurationFinnishWords;
+
+    // Signed day delta.
+    [Test]
+    [TestCase('Days - same',   '20260101;20260101;0', ';')]
+    [TestCase('Days - future', '20260102;20260101;1', ';')]
+    [TestCase('Days - past',   '20260101;20260102;-1', ';')]
+    [TestCase('Days - year',   '20270101;20260101;365', ';')]
+    procedure DaysUntilValue(const ADateYmd, ATodayYmd, AExpected: Integer);
+
+    // One-call install gate (fake OS, Workstation track via unknown product type).
+    [Test]
+    [TestCase('Sup - before',  '10;0;19045;20250101;0;True', ';')]
+    [TestCase('Sup - after',   '10;0;19045;20260101;0;False', ';')]
+    [TestCase('Sup - grace',   '10;0;19045;20260101;100;True', ';')]
+    [TestCase('Sup - pre10',   '6;1;7601;20200101;3650;False', ';')]
+    [TestCase('Sup - future',  '10;0;99999;20991231;0;True', ';')]
+    procedure SupportedGate(const AMajor, AMinor, ABuild, ATodayYmd, ASlackDays: Integer;
+      const AExpected: Boolean);
+
+    // Family / accessor helpers.
+    [Test]
+    [TestCase('Fam - 22H2', '10;0;19045;True;False', ';')]
+    [TestCase('Fam - 21H2', '10;0;22000;False;True', ';')]
+    [TestCase('Fam - 24H2', '10;0;26100;False;True', ';')]
+    [TestCase('Fam - Win7', '6;1;7601;False;False', ';')]
+    procedure FamilyHelpers(const AMajor, AMinor, ABuild: Integer; const AIs10, AIs11: Boolean);
+
+    // Enum -> string, and data-staleness check.
+    [Test]
+    procedure EnumStringsAndStaleness;
   end;
 
 implementation
@@ -382,6 +431,8 @@ end;
 procedure TInnoSetupWindowsVersion.TearDown;
 begin
   ClearFakeWindowsVersion;
+  // Reset duration words to English so a localisation test can't leak into others.
+  SetDurationUnitWords('day', 'days', 'month', 'months', 'year', 'years');
 end;
 
 procedure TInnoSetupWindowsVersion.WindowsNaming(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean;
@@ -437,6 +488,61 @@ begin
   SetFakeWindowsVersion(10, 0, 26100, False);  // Windows 11 24H2 client
   SetFakeWindowsProductType(AProductType);
   Assert.AreEqual(AExpectedEnded, IsWindowsSecuritySupportEnded(ATodayYmd));
+end;
+
+procedure TInnoSetupWindowsVersion.DurationFormat(const ADays: Integer; const AExpected: string);
+begin
+  Assert.AreEqual(AExpected, DurationStr(ADays));
+end;
+
+procedure TInnoSetupWindowsVersion.DurationFinnishWords;
+begin
+  SetDurationUnitWords('paiva', 'paivaa', 'kuukausi', 'kuukautta', 'vuosi', 'vuotta');
+
+  Assert.AreEqual('1 paiva', DurationStr(1));
+  Assert.AreEqual('5 paivaa', DurationStr(5));
+  Assert.AreEqual('1 vuosi 1 kuukausi', DurationStr(400));
+  Assert.AreEqual('2 vuotta 2 kuukautta', DurationStr(800));
+  // TearDown restores English.
+end;
+
+procedure TInnoSetupWindowsVersion.DaysUntilValue(const ADateYmd, ATodayYmd, AExpected: Integer);
+begin
+  Assert.AreEqual(AExpected, DaysUntil(ADateYmd, ATodayYmd));
+end;
+
+procedure TInnoSetupWindowsVersion.SupportedGate(const AMajor, AMinor, ABuild, ATodayYmd, ASlackDays: Integer;
+  const AExpected: Boolean);
+begin
+  SetFakeWindowsVersion(AMajor, AMinor, ABuild, False);
+  Assert.AreEqual(AExpected, IsWindowsSupported(ATodayYmd, ASlackDays));
+end;
+
+procedure TInnoSetupWindowsVersion.FamilyHelpers(const AMajor, AMinor, ABuild: Integer;
+  const AIs10, AIs11: Boolean);
+begin
+  SetFakeWindowsVersion(AMajor, AMinor, ABuild, False);
+  Assert.AreEqual(AIs10, IsWindows10);
+  Assert.AreEqual(AIs11, IsWindows11);
+  Assert.AreEqual(ABuild, GetWindowsBuildNumber);
+end;
+
+procedure TInnoSetupWindowsVersion.EnumStringsAndStaleness;
+begin
+  Assert.AreEqual('Home', WindowsEditionToStr(weHome));
+  Assert.AreEqual('Professional', WindowsEditionToStr(weProfessional));
+  Assert.AreEqual('Enterprise', WindowsEditionToStr(weEnterprise));
+  Assert.AreEqual('Education', WindowsEditionToStr(weEducation));
+  Assert.AreEqual('Server', WindowsEditionToStr(weServer));
+  Assert.AreEqual('Unknown', WindowsEditionToStr(weUnknown));
+
+  Assert.AreEqual('Workstation', WindowsSupportTrackToStr(stWorkstation));
+  Assert.AreEqual('Enterprise', WindowsSupportTrackToStr(stEnterprise));
+  Assert.AreEqual('Server', WindowsSupportTrackToStr(stServer));
+
+  Assert.IsFalse(IsWindowsDataStale(20261006, 365));  // on snapshot day
+  Assert.IsFalse(IsWindowsDataStale(20261106, 365));  // ~31 days later
+  Assert.IsTrue(IsWindowsDataStale(20281006, 365));   // ~2 years later
 end;
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer;

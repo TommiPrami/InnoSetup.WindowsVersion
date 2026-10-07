@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  inno:
+    name: Compile & self-test (Inno Setup)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile the test installer
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup*\ISCC.exe' |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw 'ISCC.exe not found' }
+          Write-Host "Using $iscc"
+          & $iscc 'TestInstaller\WindowsVersionTestInstaller.iss'
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)" }
+
+      - name: Run the [Code] self-tests (headless)
+        shell: pwsh
+        run: |
+          # The installer ships no files; under /VERYSILENT it just runs the
+          # [Code] checks. A failed CheckResult raises and aborts Setup with a
+          # non-zero exit code, which fails the job.
+          $exe = 'TestInstaller\WindowsVersionTestInstaller\WindowsVersionTestInstaller.exe'
+          & $exe /VERYSILENT /SUPPRESSMSGBOXES
+          if ($LASTEXITCODE -ne 0) {
+            throw "Self-tests failed (exit $LASTEXITCODE)"
+          }
+          Write-Host 'All self-tests passed.'

@@ -100,6 +100,32 @@ by-build/by-track `GetWindowsActiveSupportEndByBuild` /
   Uses the `GetProductInfo` WinAPI, with a `VER_SUITE_PERSONAL` fallback for Home.
 - `IsWindowsHomeEdition: Boolean`
 
+## Public API
+
+In Inno Setup everything in `[Code]` is callable, so it's easy to reach
+internals by accident. These are the routines intended for callers:
+
+- **Naming:** `WindowsVersionStr`, `WindowsVersion`, `WindowsNameForBuild`,
+  `GetWindowsBuildVersionStr`.
+- **Comparing:** `IsWindowsVersion`, `CompareVersionsStr`, the `IsWin7` / `IsWin8`
+  / `IsWin81` / `IsWin10_*` / `IsWin11_*` / `IsWinServer*` helpers.
+- **Family / accessors:** `IsWindows10`, `IsWindows11`, `GetWindowsBuildNumber`,
+  `GetWindowsVersionParts`.
+- **Edition:** `GetWindowsEdition`, `IsWindowsHomeEdition`, `IsWindowsServer`,
+  `WindowsEditionToStr`, `GetCurrentSupportTrack`, `WindowsSupportTrackToStr`.
+- **Support lifecycle:** `IsWindowsSupported`, `IsWindowsActiveSupportEnded`,
+  `IsWindowsSecuritySupportEnded`, `GetWindowsActiveSupportEnd` /
+  `GetWindowsSecuritySupportEnd`, the `*ByBuild` getters, `IsPastWithSlackDays`,
+  `IsSupportEnded`, `IsWindowsDataStale`.
+- **Durations / dates:** `DaysUntil`, `DurationStr`, `DaysUntilStr`,
+  `WindowsSupportUntilStr`, `SetDurationUnitWords`, `YmdToSerial`.
+- **Test hooks:** `SetFakeWindowsVersion`, `SetFakeWindowsSuiteMask`,
+  `SetFakeWindowsProductType`, `ClearFakeWindowsVersion`.
+
+Everything else (`HandleVersionNN`, `ComparePart`, `AddWindowsVersion`,
+`EnsureWindowsVersionsInited`, `ParseVersionString`, `GetActiveWindows*`, ...) is
+internal and may change.
+
 ## Testing
 
 The DUnitX project and the test installer share the exact same `.inc` code. For

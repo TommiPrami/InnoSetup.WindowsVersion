@@ -34,13 +34,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Code]
 #include "..\WindowsVersion.iss"
 
-procedure ShowWindowsVersion;
-begin
-  MsgBox('Detected Windows Version: ' + WindowsVersionStr, mbInformation, MB_OK);
-end;
-
 procedure CheckResult(const AResult, AExpectedResult: Boolean; const AMessage: string);
 begin
+  // On failure, show an explicit error box (even when silent) and abort Setup
+  // (non-zero exit code), so a real problem is never missed.
   if AResult <> AExpectedResult then
     RaiseException('Test failed: "' + AMessage + '" (got ' + IfThenStr(AResult, 'True', 'False')
       + ', expected ' + IfThenStr(AExpectedResult, 'True', 'False') + ')');
@@ -51,6 +48,51 @@ var
   GOSMinor: Integer;
   GOSBuild: Integer;
   GIsServer: Boolean;
+  GResultText: string;   // shown on the Finished page when all checks pass
+
+// --- Small display helpers for the demo summary ---
+
+function YesNo(const AValue: Boolean): string;
+begin
+  Result := IfThenStr(AValue, 'Yes', 'No');
+end;
+
+function Pad2(const AValue: Integer): string;
+begin
+  Result := IntToStr(AValue);
+  if Length(Result) < 2 then
+    Result := '0' + Result;
+end;
+
+// YYYYMMDD integer -> 'YYYY-MM-DD' (or a word when unknown / not announced).
+function YmdToStr(const AYmd: Integer): string;
+begin
+  if AYmd <= 0 then
+    Result := 'unknown (TBA)'
+  else
+    Result := IntToStr(AYmd div 10000) + '-' + Pad2((AYmd div 100) mod 100) + '-' + Pad2(AYmd mod 100);
+end;
+
+function FamilyStr: string;
+begin
+  if IsWindows11 then
+    Result := 'Windows 11'
+  else if IsWindows10 then
+    Result := 'Windows 10'
+  else
+    Result := 'pre-Windows 10 / other';
+end;
+
+// "<date>  (N units left)" / "<date>  (ended N units ago)" / "unknown (TBA)".
+function SupportPhrase(const AEndYmd, ATodayYmd: Integer): string;
+begin
+  if AEndYmd <= 0 then
+    Result := 'unknown (TBA)'
+  else if IsSupportEnded(AEndYmd, ATodayYmd) then
+    Result := YmdToStr(AEndYmd) + '  (ended ' + DaysUntilStr(AEndYmd, ATodayYmd) + ' ago)'
+  else
+    Result := YmdToStr(AEndYmd) + '  (' + DaysUntilStr(AEndYmd, ATodayYmd) + ' left)';
+end;
 
 function CompareInt(const A, B: Integer): Integer;
 begin
@@ -122,19 +164,6 @@ begin
     RaiseException('Test failed: "' + AName + '" (got "' + AActual + '", expected "' + AExpected + '")');
 end;
 
-function EditionName(const AEdition: TWindowsEdition): string;
-begin
-  case AEdition of
-    weHome:         Result := 'Home';
-    weProfessional: Result := 'Professional';
-    weEnterprise:   Result := 'Enterprise';
-    weEducation:    Result := 'Education';
-    weServer:       Result := 'Server';
-  else
-    Result := 'Unknown';
-  end;
-end;
-
 // Switches the library onto a FAKE OS version and keeps the installer's own
 // snapshot in sync, so VerifyHelper's expectations are computed against the
 // same fake. Also resets the fake product type to 0 (unknown) so edition/track
@@ -154,12 +183,12 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   LOSVersion: TWindowsVersion;
+  LToday: Integer;
+  LMajor, LMinor, LBuild: Integer;
 begin
   case CurStep of
     ssInstall:
       begin
-        ShowWindowsVersion;
-
         // Snapshot the running OS once; every helper is verified RELATIVE to it,
         // so this installer keeps passing as new Windows builds ship (instead of
         // the old hard-coded expectations that assumed one specific dev machine).
@@ -327,13 +356,79 @@ begin
         UseFakeOS(6, 1, 7601, False);    // pretend Windows 7
         CheckResult(IsWindowsSecuritySupportEnded(20200101), True, 'Fake Win7: always past security support');
 
-        // Done faking - fall back to the real OS.
+        // One-call install gate.
+        UseFakeOS(10, 0, 19045, False);  // Windows 10 22H2, security end 2025-10-14
+        CheckResult(IsWindowsSupported(20250101, 0), True, 'Supported before EOL');
+        CheckResult(IsWindowsSupported(20260101, 0), False, 'Unsupported after EOL (no slack)');
+        CheckResult(IsWindowsSupported(20260101, 100), True, 'Still within 100-day grace');
+        UseFakeOS(6, 1, 7601, False);
+        CheckResult(IsWindowsSupported(20200101, 3650), False, 'Pre-Win10 never supported, even with slack');
+
+        // Human-readable durations (DurationStr: "x days" / "x months" /
+        // "x years y months"), with localisable unit words.
+        CheckStr(DurationStr(5), '5 days', 'Duration 5 days');
+        CheckStr(DurationStr(1), '1 day', 'Duration singular day');
+        CheckStr(DurationStr(90), '3 months', 'Duration 3 months');
+        CheckStr(DurationStr(400), '1 year 1 month', 'Duration 1 year 1 month');
+        CheckStr(DurationStr(2432), '6 years 8 months', 'Duration big day count');
+        SetDurationUnitWords('paiva', 'paivaa', 'kuukausi', 'kuukautta', 'vuosi', 'vuotta');
+        CheckStr(DurationStr(400), '1 vuosi 1 kuukausi', 'Finnish duration words');
+        CheckStr(DurationStr(800), '2 vuotta 2 kuukautta', 'Finnish plural year');
+        SetDurationUnitWords('day', 'days', 'month', 'months', 'year', 'years');  // restore English
+
+        // Family / accessor + data-staleness helpers.
+        UseFakeOS(10, 0, 26100, False);
+        CheckResult(IsWindows11, True, 'Build 26100 is Windows 11');
+        CheckResult(IsWindows10, False, 'Build 26100 is not Windows 10');
+        CheckResult(GetWindowsBuildNumber = 26100, True, 'GetWindowsBuildNumber');
+        UseFakeOS(10, 0, 19045, False);
+        CheckResult(IsWindows10, True, 'Build 19045 is Windows 10');
+        CheckResult(IsWindows11, False, 'Build 19045 is not Windows 11');
+        CheckResult(IsWindowsDataStale(20261006, 365), False, 'Snapshot not stale on snapshot day');
+        CheckResult(IsWindowsDataStale(20281006, 365), True, 'Snapshot stale after 2 years');
+
+        // Done faking - fall back to the real OS. All checks passed (any
+        // failure above would have aborted Setup). Build the summary shown on
+        // the Finished page - no success message box.
         ClearFakeWindowsVersion;
 
-        MsgBox('All Windows version checks passed for: ' + WindowsVersionStr + #13#10
-          + 'Edition: ' + EditionName(GetWindowsEdition)
-          + ', Server SKU: ' + IfThenStr(IsWindowsServer, 'Yes', 'No'),
-          mbInformation, MB_OK);
+        LToday := StrToInt(GetDateTimeString('yyyymmdd', #0, #0));
+        GetWindowsVersionParts(LMajor, LMinor, LBuild);
+
+        // Everything the library can report for THIS machine - the Finished page
+        // doubles as a live demo you can read before clicking Finish.
+        GResultText :=
+            'All Windows version self-tests passed.' + #13#10 + #13#10
+          + 'What the library reports for this machine:' + #13#10
+          + '  Name:             ' + WindowsVersionStr + #13#10
+          + '  Version:          ' + IntToStr(LMajor) + '.' + IntToStr(LMinor) + '.' + IntToStr(LBuild) + #13#10
+          + '  Family:           ' + FamilyStr + #13#10
+          + '  Edition:          ' + WindowsEditionToStr(GetWindowsEdition) + #13#10
+          + '  Home edition:     ' + YesNo(IsWindowsHomeEdition) + #13#10
+          + '  Server SKU:       ' + YesNo(IsWindowsServer) + #13#10
+          + '  Support track:    ' + WindowsSupportTrackToStr(GetCurrentSupportTrack) + #13#10
+          + '  Active support:   ' + SupportPhrase(GetWindowsActiveSupportEnd, LToday) + #13#10
+          + '  Security support: ' + SupportPhrase(GetWindowsSecuritySupportEnd, LToday) + #13#10
+          + '  Still supported:  ' + YesNo(IsWindowsSupported(LToday, 0)) + #13#10
+          + '  Support data:     snapshot ' + YmdToStr(WINDOWS_DATA_SNAPSHOT_YMD)
+          + ' (stale: ' + YesNo(IsWindowsDataStale(LToday, 365)) + ')';
       end;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  // Show the detected version and the self-test result on the Finished page's
+  // label instead of a message box, so a successful run pops no dialogs. Grow
+  // the label to fill the page so the whole demo summary is visible.
+  if (CurPageID = wpFinished) and (GResultText <> '') then
+  begin
+    WizardForm.FinishedLabel.AutoSize := False;
+    WizardForm.FinishedLabel.Height :=
+      WizardForm.FinishedLabel.Parent.ClientHeight - WizardForm.FinishedLabel.Top - ScaleY(8);
+    // Monospace so the space-aligned columns line up (a TLabel ignores tabs).
+    WizardForm.FinishedLabel.Font.Name := 'Courier New';
+    WizardForm.FinishedLabel.Font.Size := 8;
+    WizardForm.FinishedLabel.Caption := GResultText;
   end;
 end;

@@ -252,10 +252,10 @@ begin
   AddWindowsVersion(10586, 'Windows 10 1511',       '',                          20151110, 20171010, 20171010, 20171010, 20171010, 0,        0);
   AddWindowsVersion(14393, 'Windows 10 1607',       'Windows Server 2016',       20160802, 20180410, 20180410, 20190409, 20190409, 20220111, 20270112);
   AddWindowsVersion(15063, 'Windows 10 1703',       '',                          20170411, 20181009, 20181009, 20191008, 20191008, 0,        0);
-  AddWindowsVersion(16299, 'Windows 10 1709',       '',                          20171017, 20190409, 20190409, 20201013, 20201013, 20190409, 20190409);
-  AddWindowsVersion(17134, 'Windows 10 1803',       '',                          20180430, 20191112, 20191112, 20200511, 20210511, 20191112, 20191112);
+  AddWindowsVersion(16299, 'Windows 10 1709',       'Windows Server 1709',       20171017, 20190409, 20190409, 20201013, 20201013, 20190409, 20190409);
+  AddWindowsVersion(17134, 'Windows 10 1803',       'Windows Server 1803',       20180430, 20191112, 20191112, 20200511, 20210511, 20191112, 20191112);
   AddWindowsVersion(17763, 'Windows 10 1809',       'Windows Server 2019',       20181113, 20201110, 20201110, 20210511, 20210511, 20240109, 20290109);
-  AddWindowsVersion(18362, 'Windows 10 1903',       '',                          20190521, 20201208, 20201208, 20201208, 20201208, 20201208, 20201208);
+  AddWindowsVersion(18362, 'Windows 10 1903',       'Windows Server 1903',       20190521, 20201208, 20201208, 20201208, 20201208, 20201208, 20201208);
   AddWindowsVersion(18363, 'Windows 10 1909',       'Windows Server 2019 1909',  20191112, 20210511, 20210511, 20220510, 20220510, 20210511, 20210511);
   AddWindowsVersion(19041, 'Windows 10 2004',       'Windows Server 2019 2004',  20200527, 20211214, 20211214, 20211214, 20211214, 20211214, 20211214);
   AddWindowsVersion(19042, 'Windows 10 20H2',       'Windows Server 2019 20H2',  20201020, 20220510, 20220510, 20230509, 20230509, 20220809, 20220809);
@@ -411,6 +411,94 @@ begin
   Result := (AEndOfSupportYmd <> 0) and (ATodayYmd > AEndOfSupportYmd);
 end;
 
+// Signed day delta between a YYYYMMDD date and today: positive = date is that
+// many days in the future, negative = that many days in the past, 0 = today.
+function DaysUntil(const ADateYmd, ATodayYmd: Integer): Integer;
+begin
+  Result := YmdToSerial(ADateYmd) - YmdToSerial(ATodayYmd);
+end;
+
+// Human-readable duration words. Defaults are English; call SetDurationUnitWords
+// early in the installer to localise (singular + plural are both needed because
+// e.g. Finnish is not a simple +s: '1 vuosi' / '2 vuotta', '1 kuukausi' /
+// '3 kuukautta'). DurationStr picks singular when the count is exactly 1.
+var
+  GDurationWordsSet: Boolean;
+  GDaySingular, GDayPlural: string;
+  GMonthSingular, GMonthPlural: string;
+  GYearSingular, GYearPlural: string;
+
+procedure EnsureDurationWordsInited;
+begin
+  if GDurationWordsSet then
+    Exit;
+
+  GDaySingular := 'day';     GDayPlural := 'days';
+  GMonthSingular := 'month'; GMonthPlural := 'months';
+  GYearSingular := 'year';   GYearPlural := 'years';
+  GDurationWordsSet := True;
+end;
+
+procedure SetDurationUnitWords(const ADaySingular, ADayPlural, AMonthSingular, AMonthPlural,
+  AYearSingular, AYearPlural: string);
+begin
+  GDaySingular := ADaySingular;     GDayPlural := ADayPlural;
+  GMonthSingular := AMonthSingular; GMonthPlural := AMonthPlural;
+  GYearSingular := AYearSingular;   GYearPlural := AYearPlural;
+  GDurationWordsSet := True;
+end;
+
+function DurationUnit(const ACount: Integer; const ASingular, APlural: string): string;
+begin
+  Result := IntToStr(ACount) + ' ';
+  if ACount = 1 then
+    Result := Result + ASingular
+  else
+    Result := Result + APlural;
+end;
+
+// Formats a day count as an approximate, human-readable duration (magnitude;
+// the sign of ADays is ignored - the caller phrases "ago"/"left"):
+//   < 1 month : "N days"
+//   < 1 year  : "N months"
+//   >= 1 year : "Y years" or "Y years M months"
+// Months/years are whole-unit approximations (30/365 days), not calendar-exact.
+function DurationStr(const ADays: Integer): string;
+var
+  LDays, LYears, LRemainingMonths: Integer;
+begin
+  EnsureDurationWordsInited;
+
+  if ADays < 0 then
+    LDays := -ADays
+  else
+    LDays := ADays;
+
+  if LDays < 30 then
+    Result := DurationUnit(LDays, GDaySingular, GDayPlural)
+  else if LDays < 365 then
+    Result := DurationUnit(LDays div 30, GMonthSingular, GMonthPlural)
+  else
+  begin
+    LYears := LDays div 365;
+    LRemainingMonths := (LDays mod 365) div 30;
+
+    Result := DurationUnit(LYears, GYearSingular, GYearPlural);
+    if LRemainingMonths > 0 then
+      Result := Result + ' ' + DurationUnit(LRemainingMonths, GMonthSingular, GMonthPlural);
+  end;
+end;
+
+// Magnitude of the time between a YYYYMMDD date and today as a duration string.
+// Empty when the date is unknown (0).
+function DaysUntilStr(const ADateYmd, ATodayYmd: Integer): string;
+begin
+  if ADateYmd <= 0 then
+    Result := ''
+  else
+    Result := DurationStr(DaysUntil(ADateYmd, ATodayYmd));
+end;
+
 // --- Current-OS convenience ---
 // Track for the running OS, from its edition: Server SKUs use the Server track,
 // Enterprise/Education the Enterprise track, everything else (Home, Pro, Pro WS,
@@ -470,6 +558,108 @@ begin
     Result := True
   else
     Result := IsSupportEnded(GetWindowsSecuritySupportEndByBuild(LVersion.Build, GetCurrentSupportTrack), ATodayYmd);
+end;
+
+// One-call install gate: True while the running OS is still within security
+// support, allowing ASlackDays of grace past the end date. Pre-Windows 10 is
+// never supported; a build newer than the table is assumed supported.
+function IsWindowsSupported(const ATodayYmd, ASlackDays: Integer): Boolean;
+var
+  LVersion: TWindowsVersion;
+  LSecurityEnd: Integer;
+begin
+  GetActiveWindowsVersion(LVersion);
+
+  if LVersion.Major < 10 then
+    Result := False
+  else
+  begin
+    LSecurityEnd := GetWindowsSecuritySupportEndByBuild(LVersion.Build, GetCurrentSupportTrack);
+    if LSecurityEnd = 0 then
+      Result := True
+    else
+      Result := not IsPastWithSlackDays(LSecurityEnd, ATodayYmd, ASlackDays);
+  end;
+end;
+
+// Human-readable time until / since the running OS's security support end
+// (magnitude only; the sign from DaysUntil tells "left" vs "ago"). Empty when
+// the end date is unknown.
+function WindowsSupportUntilStr(const ATodayYmd: Integer): string;
+begin
+  Result := DaysUntilStr(GetWindowsSecuritySupportEnd, ATodayYmd);
+end;
+
+// --- Family / accessor helpers ---
+
+function GetWindowsBuildNumber: Integer;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  Result := LVersion.Build;
+end;
+
+procedure GetWindowsVersionParts(var AMajor, AMinor, ABuild: Integer);
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  AMajor := LVersion.Major;
+  AMinor := LVersion.Minor;
+  ABuild := LVersion.Build;
+end;
+
+// Windows 10 and 11 both report major 10; build 22000 is the 10/11 boundary.
+function IsWindows10: Boolean;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  Result := (LVersion.Major = 10) and (LVersion.Build < 22000);
+end;
+
+function IsWindows11: Boolean;
+var
+  LVersion: TWindowsVersion;
+begin
+  GetActiveWindowsVersion(LVersion);
+  Result := (LVersion.Major = 10) and (LVersion.Build >= 22000);
+end;
+
+// --- Enum -> string (for display / logging) ---
+
+function WindowsEditionToStr(const AEdition: TWindowsEdition): string;
+begin
+  case AEdition of
+    weHome:         Result := 'Home';
+    weProfessional: Result := 'Professional';
+    weEnterprise:   Result := 'Enterprise';
+    weEducation:    Result := 'Education';
+    weServer:       Result := 'Server';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+function WindowsSupportTrackToStr(const ATrack: TWindowsSupportTrack): string;
+begin
+  if ATrack = stServer then
+    Result := 'Server'
+  else if ATrack = stEnterprise then
+    Result := 'Enterprise'
+  else
+    Result := 'Workstation';
+end;
+
+// Date the support table was captured from endoflife.date, and a staleness
+// check so an installer can warn when the bundled data is old.
+const
+  WINDOWS_DATA_SNAPSHOT_YMD = 20261006;
+
+function IsWindowsDataStale(const ATodayYmd, AMaxAgeDays: Integer): Boolean;
+begin
+  Result := (YmdToSerial(ATodayYmd) - YmdToSerial(WINDOWS_DATA_SNAPSHOT_YMD)) > AMaxAgeDays;
 end;
 
 function WindowsVersion(const AVersion: TWindowsVersion): string;
