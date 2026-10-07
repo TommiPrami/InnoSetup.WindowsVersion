@@ -32,7 +32,7 @@ type
     [TestCase('Older - 16', '7;3;8800;True', ';')]
     [TestCase('Older - 17', '7;3;8800;True', ';')]
     [TestCase('Older - 18', '10;0;10240;True', ';')] // Win10 1507
-    procedure IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer; const AExcpectedResult: Boolean);
+    procedure IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer; const AExpectedResult: Boolean);
 
     [Test]
     [TestCase('OlderOrEqual - 01', '5;1;0;False', ';')]
@@ -53,7 +53,7 @@ type
     [TestCase('OlderOrEqual - 16', '7;3;8800;True', ';')]
     [TestCase('OlderOrEqual - 17', '7;3;8800;True', ';')]
     [TestCase('OlderOrEqual - 18', '10;0;10240;True', ';')] // Win10 1507
-    procedure IsWindowsVersionOlderOrEqual(const AMajor, AMinor, ABuild: Integer; const AExcpectedResult: Boolean);
+    procedure IsWindowsVersionOlderOrEqual(const AMajor, AMinor, ABuild: Integer; const AExpectedResult: Boolean);
 
     [Test]
     [TestCase('NewerOrEqual - 01', '5;1;0;True', ';')]
@@ -74,7 +74,7 @@ type
     [TestCase('NewerOrEqual - 16', '7;3;8800;False', ';')]
     [TestCase('NewerOrEqual - 17', '7;3;8800;False', ';')]
     [TestCase('NewerOrEqual - 18', '10;0;10240;False', ';')] // Win10 1507
-    procedure IsWindowsVersionNewerOrEqual(const AMajor, AMinor, ABuild: Integer; const AExcpectedResult: Boolean);
+    procedure IsWindowsVersionNewerOrEqual(const AMajor, AMinor, ABuild: Integer; const AExpectedResult: Boolean);
 
     [Test]
     [TestCase('Newer - 01', '5;1;0;True', ';')]
@@ -95,7 +95,7 @@ type
     [TestCase('Newer - 16', '7;3;8800;False', ';')]
     [TestCase('Newer - 17', '7;3;8800;False', ';')]
     [TestCase('Newer - 18', '10;0;10240;False', ';')] // Win10 1507
-    procedure IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer; const AExcpectedResult: Boolean);
+    procedure IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer; const AExpectedResult: Boolean);
 
     [Test]                        // Result = "version 1 (the OS) {method} version 2"
     [TestCase('Compare versions - 01', '5;1;0;10;0;19043;vcmOlder;True', ';')]
@@ -178,7 +178,7 @@ type
     [TestCase('Compare versions - 74', '10;0;19043;10;-1;-1;vcmNewerOrEqual;True', ';')]
     [TestCase('Compare versions - 75', '10;0;19043;10;-1;-1;vcmNewer;False', ';')]
     procedure CompareWindowsVersions(const AMajor1, AMinor1, ABuild1, AMajor2, AMinor2, ABuild2: Integer;
-      const ACompareMethod: TVersionCompareMethod; const AExcpectedResult: Boolean);
+      const ACompareMethod: TVersionCompareMethod; const AExpectedResult: Boolean);
 
     [Test]                              // Result = "version 1 {method} version 2"; missing/extra parts handled
     // Full versions
@@ -208,7 +208,7 @@ type
     [TestCase('Str - 19', '10.1;10.1.5;vcmEqual;True', ';')]
     [TestCase('Str - 20', '11.0.0;10.9.9;vcmNewer;True', ';')]
     procedure CompareVersionsFromStrings(const AVersion, AVersionComparedTo: string;
-      const ACompareMethod: TVersionCompareMethod; const AExcpectedResult: Boolean);
+      const ACompareMethod: TVersionCompareMethod; const AExpectedResult: Boolean);
 
     // Clears the fake OS after every test so fake-based cases below do not leak
     // into the SetOSVersion-based cases above.
@@ -228,12 +228,14 @@ type
     [TestCase('Name - 24H2',     '10;0;26100;False;Windows 11 24H2', ';')]
     [TestCase('Name - 26H2',     '10;0;26300;False;Windows 11 26H2', ';')]
     [TestCase('Name - 2025 srv', '10;0;26052;True;Windows Server 2025', ';')]
+    [TestCase('Name - 2025 b',   '10;0;26100;True;Windows Server 2025', ';')]
     [TestCase('Name - fb high',  '10;0;99999;False;Windows 11 (10.0.99999)', ';')]
     [TestCase('Name - fb low',   '10;0;12345;False;Windows 10 (10.0.12345)', ';')]
     [TestCase('Name - Win7',     '6;1;7601;False;Windows 7 SP1', ';')]
     [TestCase('Name - Srv2008R2','6;1;7601;True;Windows Server 2008 R2 with Service Pack 1', ';')]
     [TestCase('Name - Win8',     '6;2;9200;False;Windows 8', ';')]
-    [TestCase('Name - Win81 up', '6;3;9600;False;Windows 8.1 Update 1', ';')]
+    [TestCase('Name - Win81',     '6;3;9600;False;Windows 8.1', ';')]
+    [TestCase('Name - Srv2012R2', '6;3;9600;True;Windows Server 2012 R2', ';')]
     [TestCase('Name - XP',       '5;1;2600;False;Windows XP', ';')]
     procedure WindowsNaming(const AMajor, AMinor, ABuild: Integer; const AServer: Boolean;
       const AExpectedName: string);
@@ -320,7 +322,7 @@ type
 implementation
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlder(const AMajor, AMinor, ABuild: Integer;
-  const AExcpectedResult: Boolean);
+  const AExpectedResult: Boolean);
 var
   LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
@@ -330,11 +332,11 @@ begin
   LCompareMethod := vcmOlder;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionOlderOrEqual(const AMajor, AMinor, ABuild: Integer;
-  const AExcpectedResult: Boolean);
+  const AExpectedResult: Boolean);
 var
   LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
@@ -344,11 +346,11 @@ begin
   LCompareMethod := vcmOlderOrEqual;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewerOrEqual(const AMajor, AMinor, ABuild: Integer;
-  const AExcpectedResult: Boolean);
+  const AExpectedResult: Boolean);
 var
   LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
@@ -358,23 +360,23 @@ begin
   LCompareMethod := vcmNewerOrEqual;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 procedure TInnoSetupWindowsVersion.CompareWindowsVersions(const AMajor1, AMinor1, ABuild1, AMajor2, AMinor2,
-  ABuild2: Integer; const ACompareMethod: TVersionCompareMethod; const AExcpectedResult: Boolean);
+  ABuild2: Integer; const ACompareMethod: TVersionCompareMethod; const AExpectedResult: Boolean);
 begin
   SetOSVersion(AMajor1, AMinor1, ABuild1, VER_NT_WORKSTATION);
 
   var LResult := IsWindowsVersion(AMajor2, AMinor2, ABuild2, ACompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 procedure TInnoSetupWindowsVersion.CompareVersionsFromStrings(const AVersion, AVersionComparedTo: string;
-  const ACompareMethod: TVersionCompareMethod; const AExcpectedResult: Boolean);
+  const ACompareMethod: TVersionCompareMethod; const AExpectedResult: Boolean);
 begin
   var LResult := CompareVersionsStr(AVersion, AVersionComparedTo, ACompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 procedure TInnoSetupWindowsVersion.TearDown;
@@ -438,7 +440,7 @@ begin
 end;
 
 procedure TInnoSetupWindowsVersion.IsWindowsVersionNewer(const AMajor, AMinor, ABuild: Integer;
-  const AExcpectedResult: Boolean);
+  const AExpectedResult: Boolean);
 var
   LCompareMethod: TVersionCompareMethod;
   LResult: Boolean;
@@ -448,7 +450,7 @@ begin
   LCompareMethod := vcmNewer;
 
   LResult := IsWindowsVersion(AMajor, AMinor, ABuild, LCompareMethod);
-  Assert.AreEqual(AExcpectedResult, LResult);
+  Assert.AreEqual(AExpectedResult, LResult);
 end;
 
 

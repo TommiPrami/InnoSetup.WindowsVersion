@@ -83,6 +83,8 @@ const
   PRODUCT_ENTERPRISE_EVALUATION = $00000048;
   PRODUCT_ENTERPRISE_S          = $0000007D; // Enterprise LTSB/LTSC
   PRODUCT_ENTERPRISE_S_N        = $0000007E;
+  PRODUCT_IOTENTERPRISE         = $000000BC;
+  PRODUCT_IOTENTERPRISE_S       = $000000BF; // IoT Enterprise LTSC
   PRODUCT_EDUCATION             = $00000079;
   PRODUCT_EDUCATION_N           = $0000007A;
 
@@ -115,7 +117,7 @@ begin
       Result := weProfessional;
 
     PRODUCT_ENTERPRISE, PRODUCT_ENTERPRISE_N, PRODUCT_ENTERPRISE_E, PRODUCT_ENTERPRISE_EVALUATION,
-    PRODUCT_ENTERPRISE_S, PRODUCT_ENTERPRISE_S_N:
+    PRODUCT_ENTERPRISE_S, PRODUCT_ENTERPRISE_S_N, PRODUCT_IOTENTERPRISE, PRODUCT_IOTENTERPRISE_S:
       Result := weEnterprise;
 
     PRODUCT_EDUCATION, PRODUCT_EDUCATION_N:
@@ -172,7 +174,11 @@ end;
 
 function GetWindowsBuildVersionStr(const AMajorVersionStr: string; const AVersion: TWindowsVersion): string;
 begin
-  Result := 'Windows ' + AMajorVersionStr + ' (' + IntToStr(AVersion.Major) + '.' + IntToStr(AVersion.Minor) + '.'
+  Result := 'Windows ';
+  if AMajorVersionStr <> '' then
+    Result := Result + AMajorVersionStr + ' ';
+
+  Result := Result + '(' + IntToStr(AVersion.Major) + '.' + IntToStr(AVersion.Minor) + '.'
     + IntToStr(AVersion.Build) + ')';
 end;
 
@@ -186,10 +192,8 @@ begin
     Result := 'Windows Vista'
   else if AVersion.Build = 6001 then
     Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008', 'Windows Vista SP1')
-  else if AVersion.Build = 6003 then
-    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 SP2,', 'Windows Vista')
-  else if AVersion.Build >= 7600 then
-    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 R2', 'Windows 7')
+  else if (AVersion.Build = 6002) or (AVersion.Build = 6003) then
+    Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 SP2', 'Windows Vista SP2')
   else
     Result := GetWindowsBuildVersionStr('Vista', AVersion);
 end;
@@ -200,10 +204,8 @@ var
 begin
   LIsWindowsServer := IsWindowsServerRecord(AVersion);
 
-  if AVersion.Build = 9200 then
+  if AVersion.Build >= 9600 then
     Result := IfThenStr(LIsWindowsServer, 'Windows Server 2012 R2', 'Windows 8.1')
-  else if AVersion.Build >= 9600 then
-    Result := 'Windows 8.1 Update 1'
   else
     Result := GetWindowsBuildVersionStr('8.1', AVersion);
 end;
@@ -266,7 +268,7 @@ begin
   AddWindowsVersion(22631, 'Windows 11 23H2',       '',                          20231031, 20251111, 20251111, 20261110, 20261110, 0,        0);
   AddWindowsVersion(25398, 'Windows Server 23H2',   '',                          20231024, 0,        0,        0,        0,        20260512, 20260512);
   AddWindowsVersion(26052, 'Windows Server 2025',   '',                          20241101, 0,        0,        0,        0,        0,        0);
-  AddWindowsVersion(26100, 'Windows 11 24H2',       '',                          20241001, 20261013, 20261013, 20271012, 20271012, 20291113, 20341114);
+  AddWindowsVersion(26100, 'Windows 11 24H2',       'Windows Server 2025',       20241001, 20261013, 20261013, 20271012, 20271012, 20291113, 20341114);
   AddWindowsVersion(26200, 'Windows 11 25H2',       '',                          20250930, 20271012, 20271012, 20281010, 20281010, 0,        0);
   AddWindowsVersion(26300, 'Windows 11 26H2',       '',                          20260930, 20281010, 20281010, 20291009, 20291009, 0,        0);
   AddWindowsVersion(28000, 'Windows 11 26H1',       '',                          20260210, 20280314, 20280314, 20290313, 20290313, 0,        0);
@@ -485,12 +487,12 @@ begin
       1: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2008 R2 with Service Pack 1', 'Windows 7 SP1');
       2: Result := IfThenStr(LIsWindowsServer, 'Windows Server 2012', 'Windows 8');
       3: Result := HandleVersion63(AVersion);
+    else
+      Result := GetWindowsBuildVersionStr('', AVersion);
     end;
   end
   else if AVersion.Major = 10 then
     Result := HandleVersion10(AVersion)
-  else if AVersion.Major > 10 then
-    Result := GetWindowsBuildVersionStr('12', AVersion) //Maybe ??
   else
     Result := GetWindowsBuildVersionStr('', AVersion);
 end;
@@ -519,82 +521,30 @@ begin
   Result := SkipVersion(AComparedVersion.Build);
 end;
 
-function ComparePart(const APartConmpare, APartConmpareTo: Integer; const ACompareMethod: TVersionCompareMethod; var ACompareResult: Boolean): Boolean;
+// Compares one version part. Result = True means this part is decisive (the
+// parts differ); ACompareResult then holds the answer for ACompareMethod.
+// Result = False means "not decisive" - either the part is skipped (-1 on
+// either side, so partial versions work on both operands, e.g.
+// CompareVersionsStr('10.1', '10.5.0')) or the parts are equal - and the
+// caller moves on to the next part.
+function ComparePart(const APartCompare, APartCompareTo: Integer; const ACompareMethod: TVersionCompareMethod; var ACompareResult: Boolean): Boolean;
 begin
   Result := False;
   ACompareResult := False;
 
-  // A part is skipped when EITHER side marks it -1, so partial versions work
-  // on both operands (e.g. CompareVersionsStr('10.1', '10.5.0')).
-  if not (SkipVersion(APartConmpare) or SkipVersion(APartConmpareTo)) then
-  begin
-    if ACompareMethod = vcmOlder then
-    begin
-      if APartConmpare < APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := True;
-      end
-      else if APartConmpare > APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := False;
-      end
-    end
-    else if ACompareMethod = vcmOlderOrEqual then
-    begin
-      if APartConmpare < APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := True;
-      end
-      else if APartConmpare > APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := False;
-      end;
-    end
-    else if ACompareMethod = vcmEqual then
-    begin
-      if APartConmpare <> APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := False;
-      end;
-    end
-    else if ACompareMethod = vcmNewerOrEqual then
-    begin
-      if APartConmpare < APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := False;
-      end
-      else if APartConmpare > APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := True;
-      end;
-    end
-    else if ACompareMethod = vcmNewer then
-    begin
-      if APartConmpare < APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := False;
-      end
-      else if APartConmpare > APartConmpareTo then
-      begin
-        Result := True;
-        ACompareResult := True;
-      end;
-    end;
-  end;
+  if SkipVersion(APartCompare) or SkipVersion(APartCompareTo) then
+    Exit;
+
+  if APartCompare = APartCompareTo then
+    Exit;
+
+  Result := True;
+  if APartCompare < APartCompareTo then
+    ACompareResult := (ACompareMethod = vcmOlder) or (ACompareMethod = vcmOlderOrEqual)
+  else // APartCompare > APartCompareTo
+    ACompareResult := (ACompareMethod = vcmNewer) or (ACompareMethod = vcmNewerOrEqual);
 end;
 
-// TODO:  Maybe should change the logic in a way that,
-//        if part of version is negative, then it is given.
-//        Now that zero is used, it'll cause problems or
-//        potentiel headache, also code is way too complec because of this.
 function CompareVersions(const AComparedVersion, AVersionComparedTo: TWindowsVersionInfo; const ACompareMethod: TVersionCompareMethod): Boolean;
 var
   LComparePartResult: Boolean;
@@ -618,7 +568,7 @@ begin
   if (SkipMinor(AComparedVersion) and not SkipBuild(AComparedVersion))
     or (SkipMinor(AVersionComparedTo) and not SkipBuild(AVersionComparedTo)) then
   begin
-    RaiseException('Build part not skipped but minor part is, skipping must strat from the the rightmost version part');
+    RaiseException('Build part not skipped but minor part is, skipping must start from the rightmost version part');
     // TODO: maybe compare result to parameter and result would be error/NoError
     Exit;
   end;
@@ -646,7 +596,7 @@ begin
         else if ACompareMethod = vcmNewer then
           Result := False
         else
-          RaiseException('Unknown or unsupported comparation operator with index: ' + IntToStr(Integer(ACompareMethod)));
+          RaiseException('Unknown or unsupported comparison operator with index: ' + IntToStr(Integer(ACompareMethod)));
       end;
     end;
   end;
@@ -689,6 +639,8 @@ begin
       LPart := LRemaining;
       LRemaining := '';
     end;
+
+    LPart := Trim(LPart);
 
     if LPart <> '' then
     begin
@@ -741,7 +693,7 @@ begin
   Result := CompareVersions(LOSVersionInfo, LComparedVersion, ACompareMethod);
 end;
 
-// 6.1.7600	Windows 7 or Windows Server 2008 R2
+// 6.1.7601	Windows 7 SP1 or Windows Server 2008 R2 SP1
 function IsWin7(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 1, 7601, ACompareMethod);
@@ -769,7 +721,7 @@ begin
   Result := IsWin8(ACompareMethod) and IsWindowsServer;
 end;
 
-// 6.3.9200	Windows 8.1 or Windows Server 2012 R2
+// 6.3.9600	Windows 8.1 or Windows Server 2012 R2
 function IsWin81(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(6, 3, 9600, ACompareMethod);
@@ -784,7 +736,7 @@ begin
 end;
 
 // 10.0.14393	Windows 10 Version 1607 (Anniversary Update) or Windows Server 2016 - Support end date: Apr 10, 2018
-function IsWin10_1067(const ACompareMethod: TVersionCompareMethod): Boolean;
+function IsWin10_1607(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 14393, ACompareMethod);
 end;
@@ -794,7 +746,7 @@ end;
 //   - End of Extended Support: January 12, 2027
 function IsWinServer2016(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
-  Result := IsWin10_1067(ACompareMethod) and IsWindowsServer;
+  Result := IsWin10_1607(ACompareMethod) and IsWindowsServer;
 end;
 
 // 10.0.17763	Windows 10 Version 1809 (October 2018 Update) or Windows Server 2019 
@@ -806,7 +758,7 @@ end;
 
 // Windows Server 1709 10.0.16299
 //   - end of support 2019.04.09
-function IsWinServer2016_1079(const ACompareMethod: TVersionCompareMethod): Boolean;
+function IsWinServer2016_1709(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result :=  IsWindowsVersion(10, 0, 16299, ACompareMethod) and IsWindowsServer;
 end;
@@ -860,7 +812,7 @@ begin
 end;
 
 // 19045 22H2 - Support started Oct 18, 2022
-//   - Support end date: May 14, 2024
+//   - Support end date: October 14, 2025
 function IsWin10_22H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 19045, ACompareMethod);
@@ -875,9 +827,9 @@ begin
   Result := IsWindowsVersion(10, 0, 20348, ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.22000	Windows 11 Version 21H2 
+// 10.0.22000	Windows 11 Version 21H2
 //   - Support end date: October 10, 2023
-function IsWin11_21H1(const ACompareMethod: TVersionCompareMethod): Boolean;
+function IsWin11_21H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 22000, ACompareMethod);
 end;
@@ -904,21 +856,21 @@ begin
   Result := IsWindowsVersion(10, 0, 25398, ACompareMethod) and IsWindowsServer;
 end;
 
-// 10.0.26052: Windows Server 2025
-//   - Released: 01.11.2024,
+// 10.0.26100: Windows Server 2025 (shares the build with Windows 11 24H2)
+//   - Released: 01.11.2024
 //   - Mainstream support: 13.11.2029
 //   - Extended support: 14.11.2034
-function IsWinServer_25H2(const ACompareMethod: TVersionCompareMethod): Boolean;
+function IsWinServer2025(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
-  Result := IsWindowsVersion(10, 0, 26052, ACompareMethod) and IsWindowsServer;
+  Result := IsWindowsVersion(10, 0, 26100, ACompareMethod) and IsWindowsServer;
 end;
 
 
 // 10.0.26100	Windows 11 Version 24H2
 //   - Release Date: 01.10.2024
 //   - End of Mainstream Support: 13.10.2026
-//   - Enteprivce support: 12.10.2027
-//   - LTCS Enterprise: 09.10.2029
+//   - Enterprise support: 12.10.2027
+//   - LTSC Enterprise: 09.10.2029
 function IsWin11_24H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 26100, ACompareMethod);
@@ -926,9 +878,8 @@ end;
 
 // 10.0.26200	Windows 11 Version 25H2
 //   - Release Date: 30.09.2025
-//   - End of Mainstream Support: TBA
-//   - Enteprivce support: TBA
-//   - LTCS Enterprise: TBA
+//   - End of Mainstream Support: 12.10.2027 (Workstation)
+//   - Enterprise support: 10.10.2028
 function IsWin11_25H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 26200, ACompareMethod);
@@ -936,9 +887,8 @@ end;
 
 // 10.0.26300	Windows 11 Version 26H2
 //   - Release Date: 30.09.2026
-//   - End of Mainstream Support: TBA
-//   - Enteprivce support: TBA
-//   - LTCS Enterprise: TBA
+//   - End of Mainstream Support: 10.10.2028 (Workstation)
+//   - Enterprise support: 09.10.2029
 function IsWin11_26H2(const ACompareMethod: TVersionCompareMethod): Boolean;
 begin
   Result := IsWindowsVersion(10, 0, 26300, ACompareMethod);

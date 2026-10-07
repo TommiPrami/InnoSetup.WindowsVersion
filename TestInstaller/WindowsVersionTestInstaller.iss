@@ -176,8 +176,8 @@ begin
           IsWin8(vcmOlder), IsWin8(vcmOlderOrEqual), IsWin8(vcmEqual), IsWin8(vcmNewerOrEqual), IsWin8(vcmNewer));
         VerifyHelper('IsWin81', 6, 3, 9600, False,
           IsWin81(vcmOlder), IsWin81(vcmOlderOrEqual), IsWin81(vcmEqual), IsWin81(vcmNewerOrEqual), IsWin81(vcmNewer));
-        VerifyHelper('IsWin10_1067', 10, 0, 14393, False,
-          IsWin10_1067(vcmOlder), IsWin10_1067(vcmOlderOrEqual), IsWin10_1067(vcmEqual), IsWin10_1067(vcmNewerOrEqual), IsWin10_1067(vcmNewer));
+        VerifyHelper('IsWin10_1607', 10, 0, 14393, False,
+          IsWin10_1607(vcmOlder), IsWin10_1607(vcmOlderOrEqual), IsWin10_1607(vcmEqual), IsWin10_1607(vcmNewerOrEqual), IsWin10_1607(vcmNewer));
         VerifyHelper('IsWin10_1809', 10, 0, 17763, False,
           IsWin10_1809(vcmOlder), IsWin10_1809(vcmOlderOrEqual), IsWin10_1809(vcmEqual), IsWin10_1809(vcmNewerOrEqual), IsWin10_1809(vcmNewer));
         VerifyHelper('IsWin10_1903', 10, 0, 18362, False,
@@ -190,8 +190,8 @@ begin
           IsWin10_21H2(vcmOlder), IsWin10_21H2(vcmOlderOrEqual), IsWin10_21H2(vcmEqual), IsWin10_21H2(vcmNewerOrEqual), IsWin10_21H2(vcmNewer));
         VerifyHelper('IsWin10_22H2', 10, 0, 19045, False,
           IsWin10_22H2(vcmOlder), IsWin10_22H2(vcmOlderOrEqual), IsWin10_22H2(vcmEqual), IsWin10_22H2(vcmNewerOrEqual), IsWin10_22H2(vcmNewer));
-        VerifyHelper('IsWin11_21H1', 10, 0, 22000, False,
-          IsWin11_21H1(vcmOlder), IsWin11_21H1(vcmOlderOrEqual), IsWin11_21H1(vcmEqual), IsWin11_21H1(vcmNewerOrEqual), IsWin11_21H1(vcmNewer));
+        VerifyHelper('IsWin11_21H2', 10, 0, 22000, False,
+          IsWin11_21H2(vcmOlder), IsWin11_21H2(vcmOlderOrEqual), IsWin11_21H2(vcmEqual), IsWin11_21H2(vcmNewerOrEqual), IsWin11_21H2(vcmNewer));
         VerifyHelper('IsWin11_22H2', 10, 0, 22621, False,
           IsWin11_22H2(vcmOlder), IsWin11_22H2(vcmOlderOrEqual), IsWin11_22H2(vcmEqual), IsWin11_22H2(vcmNewerOrEqual), IsWin11_22H2(vcmNewer));
         VerifyHelper('IsWin11_23H2', 10, 0, 22631, False,
@@ -212,8 +212,8 @@ begin
           IsWinServer2012r2(vcmOlder), IsWinServer2012r2(vcmOlderOrEqual), IsWinServer2012r2(vcmEqual), IsWinServer2012r2(vcmNewerOrEqual), IsWinServer2012r2(vcmNewer));
         VerifyHelper('IsWinServer2016', 10, 0, 14393, True,
           IsWinServer2016(vcmOlder), IsWinServer2016(vcmOlderOrEqual), IsWinServer2016(vcmEqual), IsWinServer2016(vcmNewerOrEqual), IsWinServer2016(vcmNewer));
-        VerifyHelper('IsWinServer2016_1079', 10, 0, 16299, True,
-          IsWinServer2016_1079(vcmOlder), IsWinServer2016_1079(vcmOlderOrEqual), IsWinServer2016_1079(vcmEqual), IsWinServer2016_1079(vcmNewerOrEqual), IsWinServer2016_1079(vcmNewer));
+        VerifyHelper('IsWinServer2016_1709', 10, 0, 16299, True,
+          IsWinServer2016_1709(vcmOlder), IsWinServer2016_1709(vcmOlderOrEqual), IsWinServer2016_1709(vcmEqual), IsWinServer2016_1709(vcmNewerOrEqual), IsWinServer2016_1709(vcmNewer));
         VerifyHelper('IsWinServer2016_1803', 10, 0, 17134, True,
           IsWinServer2016_1803(vcmOlder), IsWinServer2016_1803(vcmOlderOrEqual), IsWinServer2016_1803(vcmEqual), IsWinServer2016_1803(vcmNewerOrEqual), IsWinServer2016_1803(vcmNewer));
         VerifyHelper('IsWinServer2019', 10, 0, 17763, True,
@@ -224,8 +224,8 @@ begin
           IsWinServer2022(vcmOlder), IsWinServer2022(vcmOlderOrEqual), IsWinServer2022(vcmEqual), IsWinServer2022(vcmNewerOrEqual), IsWinServer2022(vcmNewer));
         VerifyHelper('IsWinServer_23H2', 10, 0, 25398, True,
           IsWinServer_23H2(vcmOlder), IsWinServer_23H2(vcmOlderOrEqual), IsWinServer_23H2(vcmEqual), IsWinServer_23H2(vcmNewerOrEqual), IsWinServer_23H2(vcmNewer));
-        VerifyHelper('IsWinServer_25H2', 10, 0, 26052, True,
-          IsWinServer_25H2(vcmOlder), IsWinServer_25H2(vcmOlderOrEqual), IsWinServer_25H2(vcmEqual), IsWinServer_25H2(vcmNewerOrEqual), IsWinServer_25H2(vcmNewer));
+        VerifyHelper('IsWinServer2025', 10, 0, 26100, True,
+          IsWinServer2025(vcmOlder), IsWinServer2025(vcmOlderOrEqual), IsWinServer2025(vcmEqual), IsWinServer2025(vcmNewerOrEqual), IsWinServer2025(vcmNewer));
 
         // ----- Deterministic checks against a FAKE OS version -----
         // These do not depend on which Windows the installer runs on, so they
